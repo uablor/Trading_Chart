@@ -1,0 +1,30 @@
+# Backend (Django)
+*.sqlite3
+*.pyc
+*.pyo
+__pycache__/
+db.sqlite3
+/media/
+staticfiles/
+venv/
+env/
+.env
+*.log
+
+# Frontend (Vue)
+node_modules/
+dist/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.vscode/
+.idea/
+*.tmp
+
+# Global
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.bak

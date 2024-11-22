@@ -129,3 +129,4 @@ class TimeUntilNextCandlestickView(APIView):
         seconds_left = 60 - seconds_in_current_minute  # เวลาที่เหลือจนถึงนาทีถัดไป
 
         return Response({"seconds_left": seconds_left})
+

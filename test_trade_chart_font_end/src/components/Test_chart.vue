@@ -2,12 +2,11 @@
   <div class="chart-container">
     <p v-if="reconnectAttempts > 0 && reconnectAttempts <= maxReconnectAttempts">กำลังเชื่อมต่อใหม่... (พยายาม {{
       reconnectAttempts }}/{{ maxReconnectAttempts }})</p>
+      
     <p v-if="reconnectAttempts === 0">WebSocket เชื่อมต่อแล้ว</p>
-    <div class="toolbar">
-      <button @click="setTimeRange('1D')">1D</button>
-      <button @click="setTimeRange('1W')">1W</button>
-      <button @click="setTimeRange('1M')">1M</button>
-    </div>
+    <!-- <p v-if="secondsLeft > 0">เวลาที่เหลือจนถึงแท่งเทียนถัดไป: {{ secondsLeft }} วินาที</p> -->
+    
+
     <div ref="chart" class="chart"></div>
   </div>
 </template>
@@ -19,9 +18,24 @@ import { createChart } from 'lightweight-charts';
 const chart = ref(null);
 const candleSeries = ref(null);
 const seriesData = ref([]); // Initial data for the chart
-const timeRange = ref('1M'); // Default time range
 const reconnectAttempts = ref(0); // Track reconnection attempts
 const maxReconnectAttempts = ref(10); // Limit reconnection attempts
+// ประกาศตัวแปร secondsLeft ด้วย ref()
+
+
+// const secondsLeft = ref(0);
+// ฟังก์ชันคำนวณเวลาที่เหลือจนถึงแท่งเทียนถัดไป
+// const calculateTimeUntilNextCandlestick = () => {
+//   const currentTime = Math.floor(Date.now() / 1000); // เวลาปัจจุบันในหน่วยวินาที
+//   const secondsInCurrentMinute = currentTime % 60; // วินาทีที่เหลือในนาทีนี้
+//   secondsLeft.value = 60 - secondsInCurrentMinute; // เวลาที่เหลือจนถึงนาทีถัดไป
+// };
+
+// เรียกใช้ฟังก์ชันทุกๆ วินาทีเพื่ออัปเดตเวลานับถอยหลัง
+// const updateCountdown = () => {
+//   calculateTimeUntilNextCandlestick();
+//   setInterval(calculateTimeUntilNextCandlestick, 1000); // อัปเดตทุกๆ วินาที
+// };
 
 // Initialize the chart after the component is mounted
 const initChart = async () => {
@@ -46,6 +60,7 @@ const initChart = async () => {
   candleSeries.value = chart.value.addCandlestickSeries();
 };
 
+
 // Fetch initial data to populate the chart
 const fetchInitialData = async () => {
   try {
@@ -68,29 +83,29 @@ const fetchInitialData = async () => {
 // Handle WebSocket data
 const handleWebSocketData = (data) => {
   try {
-    const klines = data.klines; // อาร์เรย์ของอ็อบเจกต์ kline
-    if (!klines || !Array.isArray(klines) || !candleSeries.value) return;
+    const klines = data.klines; // อ็อบเจกต์ที่มีข้อมูล kline
+    if (!klines || !candleSeries.value) return;
 
     // ประมวลผลข้อมูล kline
-    const klineData = klines.map(d => ({
-      time: d[0] ? d[0] / 1000 : NaN,  // แปลงเวลาให้เป็นวินาทีจากมิลลิวินาที
-      open: parseFloat(d[1]),
-      high: parseFloat(d[2]),
-      low: parseFloat(d[3]),
-      close: parseFloat(d[4]),
-    }))
-    .filter(d => !isNaN(d.time) && !isNaN(d.open) && !isNaN(d.high) && !isNaN(d.low) && !isNaN(d.close));
+    const klineData = [{
+      time: klines.time ? klines.time : NaN, // ใช้ฟิลด์ `time` โดยตรง
+      open: parseFloat(klines.open),
+      high: parseFloat(klines.high),
+      low: parseFloat(klines.low),
+      close: parseFloat(klines.close),
+    }].filter(d => !isNaN(d.time) && !isNaN(d.open) && !isNaN(d.high) && !isNaN(d.low) && !isNaN(d.close));
 
-    // เพิ่มข้อมูลใหม่ลงในกราฟที่มีอยู่
+    // console.log("ข้อมูลจาก KlineDate ที่ได้รับ:", klineData);
     if (klineData.length > 0 && candleSeries.value) {
       klineData.forEach(kline => {
-        candleSeries.value.update(kline);  // ใช้ update แทน setData
+        candleSeries.value.update(kline); // ใช้ update แทน setData
       });
     }
   } catch (err) {
     console.error('เกิดข้อผิดพลาดในการประมวลผลข้อมูลจาก WebSocket:', err);
   }
 };
+
 
 
 
@@ -105,7 +120,7 @@ const connectWebSocket = () => {
   socket.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      console.log('ข้อมูลจาก WebSocket ที่ได้รับ:', data);
+      // console.log('ข้อมูลจาก WebSocket ที่ได้รับ:', data);
       handleWebSocketData(data);
     } catch (err) {
       console.error('Error parsing WebSocket message:', err);
@@ -123,23 +138,15 @@ const connectWebSocket = () => {
   };
 };
 
-// Set visible time range for the chart
-const setTimeRange = (range) => {
-  const now = Date.now() / 1000;
-  let startTime;
-
-  if (range === '1D') startTime = now - 86400;
-  else if (range === '1W') startTime = now - 604800;
-  else if (range === '1M') startTime = now - 2592000;
-
-  chart.value.timeScale().setVisibleRange({ from: startTime, to: now });
-};
 
 // Component mounted lifecycle hook
 onMounted(async () => {
   await initChart(); // Initialize chart when the component is mounted
   fetchInitialData(); // Fetch initial data for the chart
   connectWebSocket(); // Connect WebSocket for real-time updates
+  // updateCountdown();
+
+
 });
 </script>
 
@@ -150,27 +157,6 @@ onMounted(async () => {
   width: 50vw;
   height: 50vh;
   background-color: #f4f4f8;
-}
-
-.toolbar {
-  display: flex;
-  gap: 10px;
-  padding: 10px;
-  z-index: 10;
-}
-
-.toolbar button {
-  padding: 8px 12px;
-  font-size: 14px;
-  cursor: pointer;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-}
-
-.toolbar button:hover {
-  background-color: #45a049;
 }
 
 .chart {

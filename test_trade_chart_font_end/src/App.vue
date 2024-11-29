@@ -1,9 +1,9 @@
 <template>
   <p v-if="secondsLeft > 0">เวลาที่เหลือจนถึงแท่งเทียนถัดไป: {{ secondsLeft }} วินาที</p>
 
-  <!-- <div>
+  <div>
     <Test_chart />
-  </div> -->
+  </div>
 
   <div class="form-buy-sell">
     <h1>การซื้อขาย</h1>
@@ -13,26 +13,45 @@
         <input type="number" class="aoumnt" v-model="quantity" min="1" />
       </label>
     </div>
-    <button class="btn-buy" @click="queueTrade('buy', 'BTCUSDT')">ซื้อ</button>
-    <button class="btn-sell" @click="queueTrade('sell', 'BTCUSDT')">ขาย</button>
+    <button 
+      class="btn-buy" 
+      :disabled="is_button_enter" 
+      @click="queueTrade('buy', 'BTCUSDT')"
+    >
+      ซื้อ
+    </button>
+    <button 
+      class="btn-sell" 
+      :disabled="is_button_enter" 
+      @click="queueTrade('sell', 'BTCUSDT')"
+    >
+      ขาย
+    </button>
   </div>
 </template>
 
 
 <script setup>
-// import Test_chart from './components/Test_chart.vue';
+import Test_chart from './components/Test_chart.vue';
 import { ref, onMounted } from 'vue';
 
-const is_trading = Boolean(false);
+// const is_trading = Boolean(false);
 
 // State variables
 const quantity = ref(0);
 const tradeResult = ref(null);
 const isWaitingForNextCandle = ref(false);
 const secondsLeft = ref(0);
+const is_button_enter = ref()
 
 // ตัวแปรชั่วคราวเก็บข้อมูลการซื้อ/ขาย
 const pendingTrade = ref(null);
+
+// Reactive variable to manage button state
+const isDisabled = ref(false);
+localStorage.getItem(isDisabled);
+// Function to handle button clicks
+
 
 // ฟังก์ชันดึงข้อมูลเวลาแท่งเทียนถัดไป
 const fetchTimeUntilNextCandlestick = async () => {
@@ -40,6 +59,8 @@ const fetchTimeUntilNextCandlestick = async () => {
     const response = await fetch('http://localhost:8000/api/time_until_next_candlestick/');
     const data = await response.json();
     secondsLeft.value = data.seconds_left;
+    is_button_enter.value = data.is_button_enter
+    // console.log(`ได้รับข้อมูล: secondsLeft=${secondsLeft.value}, is_button_enter=${is_button_enter.value}`);
   } catch (error) {
     console.error('เกิดข้อผิดพลาดในการดึงข้อมูล:', error);
   }
@@ -47,15 +68,16 @@ const fetchTimeUntilNextCandlestick = async () => {
 
 // ฟังก์ชันบันทึกคำขอซื้อ/ขาย
 function queueTrade(action, symbol) {
+
   if (quantity.value <= 0) {
     alert("ปริมาณต้องมากกว่าศูนย์");
     return;
   }
 
-  if (pendingTrade.value) {
-    alert("คุณมีคำขอที่ยังไม่ได้ดำเนินการ กรุณารอแท่งเทียนใหม่");
-    return;
-  }
+  // if (pendingTrade.value) {
+  //   alert("คุณมีคำขอที่ยังไม่ได้ดำเนินการ กรุณารอแท่งเทียนใหม่");
+  //   return;
+  // }
 
   // บันทึกข้อมูลคำขอในตัวแปร `pendingTrade`
   pendingTrade.value = { action, symbol, quantity: quantity.value };
@@ -64,9 +86,10 @@ function queueTrade(action, symbol) {
 
 // ฟังก์ชันส่งข้อมูลไปยัง Backend
 async function sendPendingTrade() {
+
   if (!pendingTrade.value) return;
   alert(`ส่งคำขอสำเลัด`);
-  is_trading = false;
+  // is_trading = false;
 
   const { action, symbol, quantity } = pendingTrade.value;
 
@@ -102,11 +125,16 @@ onMounted(() => {
   setInterval(async () => {
     await fetchTimeUntilNextCandlestick();
     console.log(`secondsLeft: ${secondsLeft.value}, pendingTrade:`, pendingTrade.value);
-    if(secondsLeft.value === 59){
-      is_trading = true
-    }
+    // จัดการสถานะปุ่มเปิด/ปิด
 
-    if (secondsLeft.value === 1 && pendingTrade.value && is_trading) {
+    // if (secondsLeft.value === 60){
+    //   isDisabled.value = !isDisabled.value;
+      
+    // }
+    console.log("status button = ",is_button_enter.value)
+    
+
+    if (secondsLeft.value === 60 && pendingTrade.value && is_button_enter.value) {
       // ส่งคำขอเมื่อถึงแท่งเทียนถัดไป
       await sendPendingTrade();
   

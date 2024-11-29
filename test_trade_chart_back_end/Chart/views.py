@@ -6,6 +6,8 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from rest_framework.views import status
 import time
+from django.core.cache import cache
+
 class KlineDataView(APIView):
     def get(self, request):
         # Fetch data from Binance API
@@ -109,7 +111,7 @@ class TradeView(APIView):
 
         # Determine profit or loss
         if last_candle_close == last_candle_start:
-            return "equal";
+            return "equal"
         if action == 'buy':
             if last_candle_close > last_candle_start:
                 return "win"
@@ -127,6 +129,18 @@ class TimeUntilNextCandlestickView(APIView):
         current_time = int(time.time())  # เวลาปัจจุบันในหน่วยวินาทีจาก Unix epoch
         seconds_in_current_minute = current_time % 60
         seconds_left = 60 - seconds_in_current_minute  # เวลาที่เหลือจนถึงนาทีถัดไป
-
-        return Response({"seconds_left": seconds_left})
+                # Get the current state of is_button_enter from cache, default to False
+        is_button_enter = cache.get('is_button_enter', False)
+        last_toggled = cache.get('last_toggled', 0)
+        # print(f"ก่อนการสลับสถานะ: is_button_enter={is_button_enter}")
+        
+        # สลับสถานะเมื่อ seconds_left == 60 และไม่ได้สลับเมื่อเร็วเกินไป
+        if seconds_left == 60 and current_time != last_toggled:
+            is_button_enter = not is_button_enter
+            cache.set('is_button_enter', is_button_enter)
+            cache.set('last_toggled', current_time)  # อัปเดตเวลาในการสลับ
+            # print(f"หลังการสลับสถานะ: is_button_enter={is_button_enter}")
+            
+            
+        return Response({"seconds_left": seconds_left ,"is_button_enter" : is_button_enter})
 

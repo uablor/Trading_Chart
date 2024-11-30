@@ -2,10 +2,10 @@
   <div class="chart-container">
     <p v-if="reconnectAttempts > 0 && reconnectAttempts <= maxReconnectAttempts">กำลังเชื่อมต่อใหม่... (พยายาม {{
       reconnectAttempts }}/{{ maxReconnectAttempts }})</p>
-      
+
     <p v-if="reconnectAttempts === 0">WebSocket เชื่อมต่อแล้ว</p>
     <!-- <p v-if="secondsLeft > 0">เวลาที่เหลือจนถึงแท่งเทียนถัดไป: {{ secondsLeft }} วินาที</p> -->
-    
+
 
     <div ref="chart" class="chart"></div>
   </div>
@@ -41,15 +41,15 @@ const maxReconnectAttempts = ref(10); // Limit reconnection attempts
 const initChart = async () => {
   await nextTick();
   chart.value = createChart(chart.value, {
-    width: chart.value.clientWidth,
+    width: 900,
     height: 600,
     layout: {
-      backgroundColor: '#000',
-      textColor: '#333',
+      background: { color: '#1f1f1f' },
+      textColor: '#fff',
     },
     grid: {
-      vertLines: { color: '#e1e3e6' },
-      horzLines: { color: '#e1e3e6' },
+      vertLines: { color: 'rgb(102, 102, 102)' },
+      horzLines: { color: 'rgb(102, 102, 102)' },
     },
     timeScale: {
       timeVisible: true,
@@ -154,14 +154,15 @@ onMounted(async () => {
 .chart-container {
   display: flex;
   flex-direction: column;
-  width: 50vw;
-  height: 50vh;
-  background-color: #f4f4f8;
+  background-color: #1f1f1f;
+  color: azure;
 }
 
 .chart {
   flex-grow: 1;
   width: 100%;
   height: 100%;
+  /* background-color: black; */
+  /* border: 3px solid red */
 }
 </style>

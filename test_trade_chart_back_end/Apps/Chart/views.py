@@ -58,6 +58,7 @@ class TradeView(APIView):
         action = request.data.get('action')  # "buy" or "sell"
         symbol = request.data.get('symbol', 'BTCUSDT')  # Default symbol
         quantity = request.data.get('quantity', 0)
+        quantity = float(quantity)
 
         if action not in ["buy", "sell"]:
             return Response({"error": "Invalid action"}, status=status.HTTP_400_BAD_REQUEST)
@@ -86,12 +87,13 @@ class TradeView(APIView):
         return Response(result, status=status.HTTP_200_OK)
 
     def execute_trade(self, action, symbol, quantity):
+        Is_quantity = quantity + (quantity * 0.95)
         # Simulate trade execution
         price = self.get_market_price(symbol)  # Get market price from API or mock data
         return {
             "action": action,
             "symbol": symbol,
-            "quantity": quantity,
+            "quantity": Is_quantity,
             "price": price,
             "status": "success"
         }

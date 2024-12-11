@@ -1,9 +1,9 @@
 <template>
   <div class="chart-container">
-    <p v-if="reconnectAttempts > 0 && reconnectAttempts <= maxReconnectAttempts">กำลังเชื่อมต่อใหม่... (พยายาม {{
+    <!-- <p v-if="reconnectAttempts > 0 && reconnectAttempts <= maxReconnectAttempts">กำลังเชื่อมต่อใหม่... (พยายาม {{
       reconnectAttempts }}/{{ maxReconnectAttempts }})</p>
 
-    <p v-if="reconnectAttempts === 0">WebSocket เชื่อมต่อแล้ว</p>
+    <p v-if="reconnectAttempts === 0">WebSocket เชื่อมต่อแล้ว</p> -->
     <!-- <p v-if="secondsLeft > 0">เวลาที่เหลือจนถึงแท่งเทียนถัดไป: {{ secondsLeft }} วินาที</p> -->
 
 
@@ -42,7 +42,7 @@ const initChart = async () => {
   await nextTick();
   chart.value = createChart(chart.value, {
     width: 900,
-    height: 600,
+    height: 500,
     layout: {
       background: { color: '#1f1f1f' },
       textColor: '#fff',
@@ -152,16 +152,17 @@ onMounted(async () => {
 
 <style scoped>
 .chart-container {
-  display: flex;
-  flex-direction: column;
+  /* border: 2px solid red; */
+  /* display: flex;
+  flex-direction: column; */
   background-color: #1f1f1f;
-  color: azure;
+  /* color: azure; */
 }
 
 .chart {
-  flex-grow: 1;
+  /* flex-grow: 1;
   width: 100%;
-  height: 100%;
+  height: 100%; */
   /* background-color: black; */
   /* border: 3px solid red */
 }

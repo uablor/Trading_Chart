@@ -6,21 +6,7 @@
         <span class="logo-text">Trade</span>
       </div>
   
-      <!-- Tabs Section -->
-      <div class="tabs">
-        <div
-          v-for="(tab, index) in tabs"
-          :key="index"
-          :class="['tab', { active: index === activeTab }]"
-          @click="setActiveTab(index)"
-        >
-          <span class="tab-icon">{{ tab.icon }}</span>
-          <span class="tab-title">{{ tab.title }}</span>
-          <span class="tab-category">{{ tab.category }}</span>
-          <button class="tab-close" @click.stop="removeTab(index)">✖</button>
-        </div>
-        <button class="add-tab" @click="addTab">+</button>
-      </div>
+  
   
       <!-- User Section -->
       <div class="user-section">
@@ -58,34 +44,14 @@
   </template>
   
   <script setup>
-  import { ref } from 'vue';
-  
-  const tabs = [
-    { icon: '🟠', title: 'BTC/USDT', category: 'Crypto' },
-    { icon: '⚪', title: 'ETH/USDT', category: 'Crypto' },
-    { icon: '⚫', title: 'XRP/USDT', category: 'Crypto' },
-  ];
-  
-  const activeTab = ref(0);
-  
+  import { ref , onMounted, watch} from 'vue';
+  import axios from '../../services/axios';
   const currentAccount = ref({
     type: 'Demo Account',
-    balance: 0,
+    balance: 1000,
   });
   
   const dropdownVisible = ref(false);
-  
-  // Methods for tabs
-  const addTab = () => {
-    tabs.push({ icon: '🟡', title: 'NEW/PAIR', category: 'Crypto' });
-  };
-  
-  const removeTab = (index) => {
-    tabs.splice(index, 1);
-    if (activeTab.value >= tabs.length) {
-      activeTab.value = Math.max(tabs.length - 1, 0);
-    }
-  };
   
   const setActiveTab = (index) => {
     activeTab.value = index;
@@ -96,14 +62,42 @@
     dropdownVisible.value = !dropdownVisible.value;
   };
   
-  const switchAccount = (accountType) => {
-    if (accountType === 'Real Account') {
-      currentAccount.value = { type: 'Real Account', balance: 1000 }; // Example real balance
-    } else {
-      currentAccount.value = { type: 'Demo Account', balance: 0 }; // Example demo balance
+
+  const switchAccount = async (accountType) => {
+  if (accountType === 'Real Account') {
+    try {
+      // เรียก API เพื่อดึงข้อมูลบัญชีจริง
+      const response = await axios.get('wallet/'); // แก้ไข URL ให้ตรงกับ Backend ของคุณ
+      const realAccountData = response.data
+
+    if (realAccountData.results && realAccountData.results.length > 0) {
+    const wallet = realAccountData.results[0]; // ดึงข้อมูลจาก array results
+    currentAccount.value = {
+      type: 'Real Account',
+      balance: wallet.balance, // ดึงค่า balance จาก wallet
+    };
+   }} catch (error) {
+      console.error('เกิดข้อผิดพลาดในการดึงข้อมูล Real Account:', error);
     }
-    dropdownVisible.value = false;
-  };
+  } else {
+    // ตั้งค่าบัญชี Demo (ถ้าไม่จำเป็นต้องเรียก API)
+    currentAccount.value = {
+      type: 'Demo Account',
+      balance: 1000,
+    };
+  }
+  dropdownVisible.value = false; // ปิด Dropdown
+};
+onMounted(() => {
+  const savedAccount = localStorage.getItem('currentAccount');
+  if (savedAccount) {
+    currentAccount.value = JSON.parse(savedAccount);
+  }
+});
+
+watch(currentAccount, (newValue) => {
+  localStorage.setItem('currentAccount', JSON.stringify(newValue));
+});
   </script>
   
   <style scoped>
@@ -115,7 +109,7 @@
     background-color: #1f1f1f;
     padding: 10px 20px;
     color: antiquewhite;
-    border-bottom: 2px solid #ff6700;
+    border-bottom: 2px solid #8811e9;
   }
   
   /* Logo */
@@ -135,74 +129,6 @@
     color: #ffffff;
   }
   
-  /* Tabs */
-  .tabs {
-    display: flex;
-    align-items: center;
-    flex-grow: 1;
-    margin-left: 20px;
-  }
-  
-  .tab {
-    display: flex;
-    align-items: center;
-    background-color: #2a2a2a;
-    padding: 8px 12px;
-    margin-right: 8px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-  }
-  
-  .tab.active {
-    background-color: #7f3aec;
-    color: white;
-  }
-  
-  .tab-icon {
-    margin-right: 5px;
-  }
-  
-  .tab-title {
-    font-weight: bold;
-    margin-right: 5px;
-  }
-  
-  .tab-category {
-    font-size: 12px;
-    color: #cccccc;
-  }
-  
-  .tab-close {
-    background: none;
-    border: none;
-    color: #cccccc;
-    font-size: 14px;
-    cursor: pointer;
-    margin-left: 8px;
-  }
-  
-  .tab-close:hover {
-    color: white;
-  }
-  
-  .add-tab {
-    background-color: #ff6700;
-    color: white;
-    border: none;
-    font-size: 18px;
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .add-tab:hover {
-    background-color: #e65c00;
-  }
   
   /* User Section */
   .user-section {

@@ -30,7 +30,6 @@ run : pip install -r requ.txt
 # run redis server in  port 127.0.0.1:6379 here for shutdown redis-cli shutdown
 run : redis-server 
 
-
 ## start Socket server
 
 run : daphne -p 9000 Core.asgi:application

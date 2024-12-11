@@ -1,13 +1,14 @@
 <template>
+    
     <div class="container">
     <div class="trade-container">
       <!-- Amount Section -->
       <div class="amount-section">
         <button class="adjust-button" @click="decreaseAmount">-</button>
-        <input class="amount-input" type="number" min="0" step="any"  v-model="quantity" />
+        <input class="amount-input" type="number" min="0" step="any"  v-model="price" />
         <button class="adjust-button" @click="increaseAmount">+</button>
       </div>
-      
+
       <!-- Quick Amount Buttons -->
       <div class="quick-amount-buttons">
         <button v-for="value in quickAmounts" :key="value" @click="setAmount(value)" class="quick-amount">
@@ -24,9 +25,9 @@
       </div>
   
       <!-- Buy/Sell Buttons -->
-      <button class="buy-button" @click="queueTrade('buy')">BUY</button>
+      <button class="buy-button" :class="{'disabled': is_button_enter}"  :disabled="is_button_enter"  @click="queueTrade('buy', 'BTCUSDT')">BUY</button>
       <div class="countdown">{{ secondsLeft }}s</div>
-      <button class="sell-button" @click="queueTrade('sell')">SELL</button>
+      <button class="sell-button" :class="{'disabled': is_button_enter}"  :disabled="is_button_enter"  @click="queueTrade('sell', 'BTCUSDT')">SELL</button>
     </div>
 </div>
   </template>
@@ -34,42 +35,43 @@
 
 <script setup>
 import { ref, onMounted, computed } from "vue";
+import axios from "../../services/axios";
 
 // const is_trading = Boolean(false);
 
 // State variables
-const quantity = ref(0);
+const price = ref(0);
 const tradeResult = ref(null);
-const isWaitingForNextCandle = ref(false);
+const isWaitingForNextCandle = ref(false); // ตรวจสอบให้แน่ใจว่าไม่คอมเมนต์ผิด
 const secondsLeft = ref(0);
-const is_button_enter = ref();
+const is_button_enter = ref(false);
 
 // ตัวแปรชั่วคราวเก็บข้อมูลการซื้อ/ขาย
 const pendingTrade = ref(null);
 
 // Reactive variable to manage button state
 const isDisabled = ref(false);
-localStorage.getItem(isDisabled);
+// localStorage.getItem(isDisabled);
 // Function to handle button clicks
 
 // ฟังก์ชันดึงข้อมูลเวลาแท่งเทียนถัดไป
 const fetchTimeUntilNextCandlestick = async () => {
     try {
-        const response = await fetch(
-            "http://localhost:8000/api/time_until_next_candlestick/"
-        );
-        const data = await response.json();
+        const response = await axios.get("time_until_next_candlestick/");
+        const data = response.data; // Axios parses JSON automatically
         secondsLeft.value = data.seconds_left;
+        // console.log("secondsLeft = ", secondsLeft.value);
         is_button_enter.value = data.is_button_enter;
-        // console.log(`ได้รับข้อมูล: secondsLeft=${secondsLeft.value}, is_button_enter=${is_button_enter.value}`);
+        console.log("btttuot = ", is_button_enter.value)
+        // console.log(`Received data: secondsLeft=${secondsLeft.value}, is_button_enter=${is_button_enter.value}`);
     } catch (error) {
-        console.error("เกิดข้อผิดพลาดในการดึงข้อมูล:", error);
+        console.error("Error fetching time until next candlestick:", error);
     }
 };
 
 // ฟังก์ชันบันทึกคำขอซื้อ/ขาย
-function queueTrade(action, symbol) {
-    if (quantity.value <= 0) {
+function queueTrade(order_type, symbol) {
+    if (price.value <= 0) {
         alert("ปริมาณต้องมากกว่าศูนย์");
         return;
     }
@@ -82,20 +84,20 @@ function queueTrade(action, symbol) {
     // บันทึกข้อมูลคำขอในตัวแปร `pendingTrade`
     if (
         pendingTrade.value &&
-        pendingTrade.value.action === action &&
+        pendingTrade.value.order_type === order_type &&
         pendingTrade.value.symbol === symbol
-    ) {
-        pendingTrade.value.quantity += quantity.value;
+    ){
+        pendingTrade.value.price += price.value;
     } else {
         // ถ้ายังไม่มีคำขอ ให้สร้างคำขอใหม่
-        pendingTrade.value = { action, symbol, quantity: quantity.value };
-        //   pendingTrade.value = { action, symbol, quantity: quantity.value };
-        //   alert(`คุณได้บันทึกคำขอ ${action === 'buy' ? 'ซื้อ' : 'ขาย'}\nSymbol: ${symbol}\nQuantity: ${quantity.value}`);
+        pendingTrade.value = { order_type, symbol, price: price.value };
+        //   pendingTrade.value = { order_type, symbol, price: price.value };
+        //   alert(`คุณได้บันทึกคำขอ ${order_type === 'buy' ? 'ซื้อ' : 'ขาย'}\nSymbol: ${symbol}\nprice: ${price.value}`);
     }
 
     alert(
-        `คุณได้บันทึกคำขอ ${action === "buy" ? "ซื้อ" : "ขาย"
-        }\nSymbol: ${symbol}\nQuantity: ${quantity.value}`
+        `คุณได้บันทึกคำขอ ${order_type === "buy" ? "ซื้อ" : "ขาย"
+        }\nSymbol: ${symbol}\nprice: ${price.value}`
     );
 }
 
@@ -105,20 +107,13 @@ async function sendPendingTrade() {
     alert(`ส่งคำขอสำเลัด`);
     // is_trading = false;
 
-    const { action, symbol, quantity } = pendingTrade.value;
-
+    // const { order_type, symbol, price } = pendingTrade.value;
     try {
-        const response = await fetch("http://localhost:8000/api/trade/", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ action, symbol, quantity }),
-        });
+        const response = await axios.post("trading/", pendingTrade.value);
 
-        const data = await response.json();
+        const data = response.data;
         if (response.status === 200) {
-            tradeResult.value = `การซื้อขายสำเร็จ!\nAction: ${data.action}\nSymbol: ${data.symbol}\nQuantity: ${data.quantity}\nPrice: ${data.price}\nผลลัพธ์: ${data.win_or_loss}`;
+            tradeResult.value = `การซื้อขายสำเร็จ!\norder_type: ${data.order_type}\nSymbol: ${data.symbol}\nprice: ${data.price}\n\nผลลัพธ์: ${data.win_or_loss}`;
             alert(tradeResult.value);
         } else {
             tradeResult.value = data.message || "ข้อผิดพลาดในการทำการซื้อขาย";
@@ -150,7 +145,7 @@ onMounted(() => {
         // }
         console.log("status button = ", is_button_enter.value);
         if (pendingTrade.value) {
-            console.log(" Update quantity = ", pendingTrade.value.quantity);
+            console.log(" Update price = ", pendingTrade.value.price);
         }
 
         if (
@@ -174,25 +169,25 @@ const profitPercentage = ref(95);
 
 // Computed property for profit calculation
 const calculatedProfit = computed(() => {
-quantity.value = parseInt(quantity.value)
-  return ((profitPercentage.value / 100) * quantity.value) + quantity.value;
+price.value = parseInt(price.value)
+  return ((profitPercentage.value / 100) * price.value) + price.value;
 });
 // Methods for amount adjustments
 const decreaseAmount = () => {
-    quantity.value = parseInt(quantity.value)
-  if (quantity.value > 0) quantity.value -= 1;
+    price.value = parseInt(price.value)
+  if (price.value > 0) price.value -= 1;
 };
 
 const increaseAmount = () => {
-quantity.value = parseInt(quantity.value)
-  quantity.value += 1;
+price.value = parseInt(price.value)
+  price.value += 1;
 };
 
 const setAmount = (value) => {
   if (value === 'all') {
     // Logic to set the max available amount can be implemented here
   } else {
-    quantity.value += value;
+    price.value += value;
   }
 };
 
@@ -236,12 +231,14 @@ const setAmount = (value) => {
 
 .container {
 
-    height: 100vh;
+    height: 100%;
     width: 300px;
     display: flex;
     justify-content: center;
     align-items: center;
-    border: 1px solid #ff6700;
+    border-top: 1px solid rgb(163, 31, 240);
+  border-left: 1px solid rgb(163, 31, 240);
+  border-right: 1px solid rgb(163, 31, 240);
     /* border-radius: 12px; */
     padding: 10px;
     background-color: #1f1f1f;
@@ -359,6 +356,7 @@ const setAmount = (value) => {
     color: #e74c3c;
 }
 
+
 .buy-button, .sell-button {
     width: 100%;
     padding: 12px 0;
@@ -389,6 +387,12 @@ const setAmount = (value) => {
 .sell-button:hover {
     background-color: #c0392b;
     transform: scale(1.02);
+}
+
+.buy-button.disabled,
+.sell-button.disabled {
+    background-color: #95a5a6 !important; /* Grey color when disabled */
+    cursor: not-allowed;
 }
 
 .countdown {

@@ -8,6 +8,7 @@ from rest_framework.views import status
 import time
 from django.core.cache import cache
 
+
 class KlineDataView(APIView):
     def get(self, request):
         # Fetch data from Binance API
@@ -43,6 +44,7 @@ class KlineDataView(APIView):
         )
 
         return Response(processed_data)
+
 
 class TradeView(APIView):
     
@@ -145,4 +147,5 @@ class TimeUntilNextCandlestickView(APIView):
             
             
         return Response({"seconds_left": seconds_left ,"is_button_enter" : is_button_enter})
+
 

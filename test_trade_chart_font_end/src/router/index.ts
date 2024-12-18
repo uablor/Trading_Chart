@@ -1,73 +1,95 @@
 import { createRouter, createWebHistory } from "vue-router";
-import Test_chart from "../components/Test_chart.vue";
+import main_page from "../views/module/Homepage.vue";
+import BTC_chart from "../views/module/btc-trading/views/index.vue";
 import Sidebar from "../components/Sidebar/Sidebar.vue";
 import Navbar from "../components/Navbar/Navbar.vue";
 import Buy_Sell from "../components/MainBot_buy_sell/Buy_Sell.vue";
+import Wallet from "../views/module/wallet/views/index.vue";
+// import Login from "../views/Model_Login/Login.vue";
+// import Register from "../views/Model_Login/Register.vue";
+import loginComponent from "../views/module/signin-signup/components/login.component.vue";
+import registerComponent from "../views/module/signin-signup/components/register.component.vue";
 
-import Login from "../views/Model_Login/Login.vue";
-import Register from "../views/Model_Login/Register.vue";
-import Homepage from "../views/module/Homepage.vue";
 import { useAuthStore } from "../stores/auth";
 import chart_buy_sell from "../views/chart_buy_sell.vue";
-import test_ from "../views/test_.vue";
-
-import Profile from "../views/Profile/Profile.vue";
+// import index from "../views/module/wallet/views/index.vue";
+import Profile from "../views/module/profile/views/index.vue";
+import Footer from "../components/Footer/Footer.vue";
 
 const routes = [
   {
-    path: "/chart_trading",
-    name: "chart",
-    component: Test_chart,
-  },
-  {
-    path: "/profile",
-    name: "profile",
-    component: Profile,
-  },
-  {
-    path: "/chart_buy_sell",
-    name: "chart_buy_sell",
-    component: chart_buy_sell,
-  },
-  {
-    path: "/test",
-    name: "test",
-    component: test_,
+    path: "/admin",
+    children: [],
   },
   {
     path: "/",
-    name: "homepage",
-    component: Homepage,
-  },
-  {
-    path: "/login",
-    name: "login",
-    component: Login,
-  },
-  {
-    path: "/register",
-    name: "register",
-    component: Register,
-  },
+    children: [
+      {
+        path: "/",
+        name: "homepage",
+        component: main_page,
+      },
+      {
+        path: "/chart_trading",
+        name: "chart",
+        component: BTC_chart,
+      },
+      {
+        path: "/footer",
+        name: "footer",
+        component: Footer,
+      },
+      // {
+      //   path: "/index",
+      //   name: "index",
+      //   component: index,
+      // },
+      {
+        path: "/profile",
+        name: "profile",
+        component: Profile,
+      },
+      {
+        path: "/chart_buy_sell",
+        name: "chart_buy_sell",
+        component: chart_buy_sell,
+      },
 
-  {
-    path: "/sidebar",
-    name: "sidebar",
-    component: Sidebar,
+      {
+        path: "/login",
+        name: "login",
+        component: loginComponent,
+      },
+      {
+        path: "/register",
+        name: "register",
+        component: registerComponent,
+      },
+
+      {
+        path: "/sidebar",
+        name: "sidebar",
+        component: Sidebar,
+      },
+
+      {
+        path: "/navbar",
+        name: "navbar",
+        component: Navbar,
+      },
+      {
+        path: "/waller",
+        name: "waller",
+        component: Wallet,
+      },
+
+      // {
+      //   path: "/buy_Sell",
+      //   name: "buy_Sell",
+      //   component: Buy_Sell,
+      // },
+    ],
   },
-
-  {
-    path: "/navbar",
-    name: "navbar",
-    component: Navbar,
-  },
-
-  // {
-  //   path: "/buy_Sell",
-  //   name: "buy_Sell",
-  //   component: Buy_Sell,
-  // },
-
 ];
 const router = createRouter({
   history: createWebHistory(), //import.meta.env.BASE_URL

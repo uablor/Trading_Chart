@@ -51,22 +51,14 @@ class UserRegisterCreateAPIview(CreateAPIView):
             with transaction.atomic():
                 self.perform_create(serializer)
                 instance = serializer.instance
-
-                # Validate and create the Gallery object
-                # if Wallet_Accout:
-                    # currency = Wallet_Accout.get("BTC")
-                    # balance = Wallet_Accout.get("balance")
-                    # reserved = Wallet_Accout.get("reserved")
-                    # admin_wallet = Wallet_Accout.get("admin_wallet")
-                    
+                
                 Wallet.objects.create(
                             currency="USDT",
                             balance=0,
-                            reserved=0,
+                            reserved=0, 
                             admin_wallet=False,
                             user_id = instance
                         )
- 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         headers = self.get_success_headers(serializer.data)

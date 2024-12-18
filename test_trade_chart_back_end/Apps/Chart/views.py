@@ -1,4 +1,5 @@
 # Chart/views.py
+from datetime import datetime, timedelta
 from rest_framework.views import APIView
 from rest_framework.response import Response
 import requests
@@ -148,4 +149,46 @@ class TimeUntilNextCandlestickView(APIView):
             
         return Response({"seconds_left": seconds_left ,"is_button_enter" : is_button_enter})
 
+class get_next_candlestick_time(APIView):
+    def get(self, request):
+        try:
+            url = f'https://api.binance.com/api/v3/klines'
+            params = {
+                'symbol': "BTCUSDT", 
+                'interval': '1m', 
+                'limit': 1, 
+            }
 
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+
+            data = response.json()
+            if not data:
+                return Response({"error": "No data found for this symbol"}, status=404)
+
+            latest_candlestick = data[0]
+            latest_timestamp = latest_candlestick[0]  # timestamp ของแท่งเทียนล่าสุด
+
+            # คำนวณเวลาแท่งเทียนถัดไป
+            next_candlestick_time = datetime.utcfromtimestamp(latest_timestamp / 1000) + timedelta(minutes=1)
+
+            # เวลาในปัจจุบัน
+            current_time = datetime.utcnow()
+
+            # คำนวณเวลาที่เหลือ (ต่างกันระหว่างเวลาปัจจุบันกับเวลาแท่งเทียนถัดไป)
+            time_diff = next_candlestick_time - current_time
+            seconds_remaining = int(time_diff.total_seconds())
+            minutes_remaining = seconds_remaining // 60
+            seconds_only = seconds_remaining % 60
+
+            # ส่งข้อมูลกลับไป
+            return Response({
+                # 'next_candlestick_time': next_candlestick_time.isoformat(),
+                # 'minutes_remaining': minutes_remaining,
+                # 'seconds_remaining': seconds_remaining,
+                'seconds_only': seconds_only
+            })
+
+        except requests.exceptions.RequestException as e:
+            # กรณีเกิดข้อผิดพลาดในการเชื่อมต่อกับ API
+            return Response({"error": str(e)}, status=500)

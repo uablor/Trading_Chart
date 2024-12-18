@@ -11,12 +11,14 @@ import time
 from Apps.Account.models import User, Wallet
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.utils import timezone
-
-from datetime import datetime
+from datetime import datetime, timedelta
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from django.core.cache import cache
 
 class Trading(APIView):
-
     permission_classes = [AllowAny]
+
     def __init__(self):
         self.endpoint = "https://api.binance.com/api/v3/klines"
         self.params = {
@@ -27,66 +29,114 @@ class Trading(APIView):
         self.wallet = None
 
     def post(self, request, *args, **kwargs):
-        user = request.user
-        # print("dsdf", user)
-        order_type = request.data.get('order_type')
-        symbol = request.data.get('symbol', 'BTCUSDT')
-        price = float(request.data.get('price', 0))
-        
-        print(" order_type = ",order_type, "symbol=", symbol,"price = " ,price)
-
-        if order_type not in ["buy", "sell"]:
-            return Response({"error": "ประเภทคำสั่งไม่ถูกต้อง"}, status=status.HTTP_400_BAD_REQUEST)
-
-        if price <= 0:
-            return Response({"error": "ราคาต้องมากกว่า 0"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # ดึงข้อมูลกระเป๋าเงินของผู้ใช้และตรวจสอบยอดคงเหลือ
-        self.wallet = self.get_user_wallet(user)
-        if not self.validate_wallet_balance(order_type, price):
-            return Response({"error": "ยอดเงินไม่เพียงพอสำหรับคำสั่งนี้"}, status=status.HTTP_400_BAD_REQUEST)
-        self.update_wallet(order_type, price)
-        
-        self.wallet.save()
-        
-        order = Order.objects.create(
-            user_id=user,
-            order_type=order_type,
-            price=price,
-            status= Order.STATUS_PENDING,
-            symbol=symbol
-        )
-
         try:
-            # ดึงข้อมูลแท่งเทียน
+            user = request.user
+            order_type = request.data.get('order_type')
+            symbol = request.data.get('symbol', 'BTCUSDT')
+            price = float(request.data.get('price', 0))
+
+            if order_type not in ["buy", "sell"]:
+                return Response({"error": "ประเภทคำสั่งไม่ถูกต้อง"}, status=status.HTTP_400_BAD_REQUEST)
+
+            if price <= 0:
+                return Response({"error": "ราคาต้องมากกว่า 0"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # ดึงข้อมูลกระเป๋าเงินของผู้ใช้และตรวจสอบยอดคงเหลือ
+            self.wallet = self.get_user_wallet(user)
+            if not self.validate_wallet_balance(order_type, price):
+                return Response({"error": "ยอดเงินไม่เพียงพอสำหรับคำสั่งนี้"}, status=status.HTTP_400_BAD_REQUEST)
+
+            self.update_wallet(order_type, price)
+            self.wallet.save()
+
+            order = Order.objects.create(
+                user_id=user,
+                order_type=order_type,
+                price=price,
+                status=Order.STATUS_PENDING,
+                symbol=symbol
+            )
+
+            # สะสมราคาใน cache
+            cache_key = f"trade_{user.id}_price_total"
+            trade_data = cache.get(cache_key, {"total_price": 0})
+            trade_data["total_price"] += price
+            cache.set(cache_key, trade_data)
+
+
             last_candle_start = self.fetch_candlestick_data(symbol, 2)
-            # print("next")
+            print("amountprice = ", trade_data["total_price"])
+           
+            
+            
+            print("wait for next candleww")
+            last_request_cache_key = f"trade_{user.id}_last_request"
+            cache.set(last_request_cache_key, {"total_price": trade_data["total_price"] , "symbol": symbol, "order_type": order_type})
+            
+            
+            # รอให้ข้อมูลอัพเดท (เช่น 2 นาที)
+            print("wait for next candle")
+            self.get_next_candlestick_time()
 
-            # รอจนกว่าแท่งเทียนถัดไป (ช่วงเวลา 1 นาที)
-            self.wait_for_next_candle()
+    
+            # ดึงข้อมูลคำขอล่าสุดจาก cache
+            last_request = cache.get(last_request_cache_key)
 
-            # ทำรายการและคำนวณผลลัพธ์
-            trade_result = self.execute_trade(order_type, symbol, price)
-            win_or_loss = self.calculate_trade_outcome(order_type, symbol, last_candle_start, price)
+            if last_request:
+                total_price = last_request["total_price"]
+                symbol = last_request["symbol"]
+                order_type = last_request["order_type"]
+
+                # ทำการ execute trade โดยใช้ข้อมูลจากคำขอล่าสุด
+                trade_result = self.execute_trade(order_type, symbol, total_price)
+                win_or_loss = self.calculate_trade_outcome(order_type, symbol, last_candle_start, total_price)
+            else:
+                # กรณีที่ไม่มีข้อมูลใน cache
+                trade_result = {"error": "ไม่มีข้อมูลคำขอล่าสุดใน cache"}
+                win_or_loss = None
+            # ทำการ execute trade
+            # trade_result = self.execute_trade(order_type, symbol, total_price)
+            # win_or_loss = self.calculate_trade_outcome(order_type, symbol, last_candle_start, total_price)
+
+            # อัพเดทสถานะคำสั่ง
             order.status = Order.STATUS_COMPLETED
             order.save()
             
-            timestamp = timezone.now()
 
+
+
+            # บันทึกการเทรดในฐานข้อมูล
+            timestamp = timezone.now()
             Trade.objects.create(
-                user_id=user,  # Assuming ForeignKey to User model
+                user_id=user,
                 trade_type=order_type,
-                price=price,
-                timestamp=timestamp,  # Use a datetime object
-                status=Trade.STATUS_COMPLETED,  # Make sure STATUS_COMPLETED is defined in the model
+                price=total_price,  # ใช้ total_price แทน amountPrice
+                timestamp=timestamp,
+                status=Trade.STATUS_COMPLETED,
                 symbol=symbol
-                )
-            # ส่งผลลัพธ์กลับ
+            )
+
+            # ส่งข้อมูลการเทรดผ่าน WebSocket
             trade_result["win_or_loss"] = win_or_loss
+
+            channel_layer = get_channel_layer()
+            cache.set(last_request_cache_key, {"trade_result": trade_result})
+            print("trading_buy_sell", {f"user_id {user}, trade_data {trade_result}"})
+            async_to_sync(channel_layer.group_send)(
+                "trading_buy_sell",
+                {
+                    'type': 'send_trade_update',
+                    'trade_data': trade_result
+                }
+            )
+
+            cache.delete(cache_key)
+            cache.delete(last_request_cache_key)
+
             return Response(trade_result, status=status.HTTP_200_OK)
-        
+
         except Exception as e:
-            # Update the order status to 'failed' in case of any error
+            # หากเกิดข้อผิดพลาด
             order.status = "failed"
             order.save()
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -103,20 +153,21 @@ class Trading(APIView):
         
     def validate_wallet_balance(self, order_type, price):
         """ตรวจสอบว่ายอดเงินในกระเป๋าเพียงพอหรือไม่"""
-        if order_type == "buy" and self.wallet.balance < price:
+        if order_type == "buy" and self.wallet.real_balance < price:
             return False
-        if order_type == "sell" and self.wallet.balance < price:
+        if order_type == "sell" and self.wallet.real_balance < price:
             return False
         return True
     
     
     def fetch_candlestick_data(self, symbol, start_end):
         """ดึงข้อมูลแท่งเทียนจาก API"""
+        start_end = int(start_end)
         self.params["symbol"] = symbol
         response = requests.get(self.endpoint, params=self.params)
         response.raise_for_status()
         data = response.json()
-        return float(data[0][start_end])  # ราคาเปิดของแท่งเทียน
+        return float(data[0][start_end])
     
         # try:
         #     candle_start_time = data[0][0]  # สมมติว่าเป็น timestamp ของแท่งเทียน
@@ -144,13 +195,13 @@ class Trading(APIView):
             # print("before--",self.wallet.reserved)
             self.wallet.reserved -= price
             # print("after----",self.wallet.reserved)
-            self.wallet.balance += price
+            self.wallet.real_balance += price
             self.wallet.save()
             return "equal"
 
         elif order_type == "buy":
             if last_candle_close > last_candle_start:
-                self.wallet.balance += adjusted_price
+                self.wallet.real_balance += adjusted_price
                 # print("before", self.wallet.reserved)  # แสดงค่าก่อน
                 self.wallet.reserved -= price
                 # print("after before save", self.wallet.reserved)  # แสดงค่าหลังการลด
@@ -168,7 +219,7 @@ class Trading(APIView):
 
         elif order_type == "sell":
             if last_candle_close < last_candle_start:
-                self.wallet.balance += adjusted_price
+                self.wallet.real_balance += adjusted_price
                 # print("beforeพพพพพพพ",self.wallet.reserved)
                 self.wallet.reserved -= price
                 # print("afteพพพพพพพพr",self.wallet.reserved)
@@ -185,20 +236,62 @@ class Trading(APIView):
     def update_wallet(self, order_type, price):
 
         self.wallet.reserved += price
-        self.wallet.balance -= price
-        # print("1231212312312312312312",self.wallet.reserved)
+        self.wallet.real_balance -= price
 
         self.wallet.save()
         
     def execute_trade(self, order_type, symbol, price):
         """ทำรายการโดยอัปเดตยอดในกระเป๋าเงินของผู้ใช้"""
-        
+
         return {
             "order_type": order_type,
             "symbol": symbol,
             "price": price,
             "status": "success",
         }
+    
+    def get_next_candlestick_time(self):
+        try:
+            url = 'https://api.binance.com/api/v3/klines'
+            params = {
+                'symbol': "BTCUSDT", 
+                'interval': '1m', 
+                'limit': 2,  # Fetch the latest two candlesticks 
+            }
+
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+            if len(data) < 2:
+                print("ข้อมูลแท่งเทียนไม่เพียงพอ", data)
+                return
+
+            # Get the second latest candlestick (we need the second one)
+            latest_candlestick = data[1]  # Get the second latest candlestick
+            latest_timestamp = latest_candlestick[0]
+
+            # Calculate when the second candlestick will be complete
+            next_candlestick_time = datetime.utcfromtimestamp(latest_timestamp / 1000) + timedelta(minutes=1)
+
+            # Add an additional minute for the next candlestick
+            next_candlestick_time += timedelta(minutes=1)
+
+            current_time = datetime.utcnow()
+            time_diff = next_candlestick_time - current_time
+            seconds_remaining = int(time_diff.total_seconds())
+
+            if seconds_remaining > 0:
+                minutes_remaining = seconds_remaining // 60
+                seconds_only = seconds_remaining % 60
+                print(f"แท่งเทียนถัดไปจะเสร็จใน {minutes_remaining} นาทีและ {seconds_only} วินาที")
+                time.sleep(seconds_remaining)  # Wait for the second candlestick to complete
+            else:
+                print("The next candlestick time has already passed.")
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching candlestick data: {e}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
 
 class OrderViewSet(viewsets.ModelViewSet):
@@ -211,8 +304,7 @@ class WalletViewSet(viewsets.ModelViewSet):
     queryset = Wallet.objects.all()  
     serializer_class = WalletSerializer  
     permission_classes = [IsAuthenticated]  
-    
-        
+
     def get_queryset(self):
         """
         ปรับแต่ง queryset เพื่อรองรับการกรองข้อมูลกระเป๋าเงินเฉพาะผู้ใช้งาน 
@@ -235,3 +327,5 @@ class TransactionViewSet(viewsets.ModelViewSet):
     serializer_class = TransactionSerializer  
     permission_classes = [IsAuthenticated]
     
+
+

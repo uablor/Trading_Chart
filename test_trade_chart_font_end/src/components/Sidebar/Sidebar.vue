@@ -13,6 +13,12 @@
                     <div class="menu-text">Profile</div>
                 </router-link>
             </li>
+            <li>
+                <router-link to="/waller" class="profile back">
+                    <img src="../../assets/image/waller.webp" class="logo-icon" />
+                    <div class="menu-text">Waller</div>
+                </router-link>
+            </li>
 
             <button @click="showModal" class="button-logout" type="button">
 

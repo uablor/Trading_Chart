@@ -67,11 +67,12 @@ class User(AbstractUser, Base_model):
     REQUIRED_FIELDS = ["username"]
     def __str__(self):
         return self.username
-    
-    
+
 class Wallet(Base_model):
+
+    demo_balance = models.IntegerField( default=1000)
     currency = models.CharField(max_length=50, blank=False, null=False)
-    balance = models.IntegerField(blank=False, null=False)
+    real_balance = models.IntegerField(blank=False, null=False)
     last_updated = models.DateTimeField(auto_now=True)  # auto_now=True will update this field to the current time whenever the model is saved
     reserved = models.IntegerField(blank=False, null=False)
     admin_wallet = models.BooleanField(default=False)

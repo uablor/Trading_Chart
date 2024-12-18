@@ -23,6 +23,9 @@ class LIstApiAPIview(APIView):
             },
             "wallet" :{
                  "wallet": reverse("api:wallet-list", request=request, format=None),
-            }
+            },
+            "next" :{
+                 "get_next_candlestick_time": reverse("api:get_next_candlestick_time", request=request, format=None),
+            },
         }
         return Response(data)

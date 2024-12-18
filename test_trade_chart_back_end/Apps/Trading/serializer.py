@@ -22,7 +22,7 @@ class TransactionSerializer(serializers.ModelSerializer):
 class WalletSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wallet
-        fields = ['id', 'currency', 'balance', 'last_updated', 'reserved']
+        fields = ['id', 'currency', 'demo_balance','real_balance','last_updated', 'reserved']
 
     def update(self, instance, validated_data):
         validated_data.pop("wallet_id", None)

@@ -43,6 +43,8 @@ export const useAuthStore = defineStore("auth", () => {
     router.push({ name: "homepage"});
   };
 
+  
+
   return {
     token,
     isAuth,

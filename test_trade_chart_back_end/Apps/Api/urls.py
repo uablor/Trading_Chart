@@ -1,5 +1,5 @@
 from django.urls import path
-from Apps.Chart.views import (KlineDataView, TradeView, TimeUntilNextCandlestickView)
+from Apps.Chart.views import (KlineDataView, TradeView, TimeUntilNextCandlestickView, get_next_candlestick_time)
 from Apps.Account.views import (
     UserLoginView,
     UserRegisterCreateAPIview,
@@ -37,9 +37,8 @@ urlpatterns = [
     path('trading/', Trading.as_view(), name='trading'),
     path("verify-email/", VerifyEmailAPIView.as_view(), name="verify-email"),
     path("resend-verify-email/", ResendVerificationEmailAPIView.as_view(), name="resend-verify-email"),
-    # path('users/', UserDetailAPIView.as_view(), name='user-list'),  # Get all users
-    # path('users/<int:id>/', UserDetailAPIView.as_view(), name='user-detail'),  # Get user by ID
-    # path('users/<int:id>/', UserDetailAPIView.as_view(), name='user-detail'),
+    path("get_next_candlestick_time/", get_next_candlestick_time.as_view(), name="get_next_candlestick_time"),
 ]
+
 
 urlpatterns += router.urls

@@ -1,38 +1,45 @@
 <template>
-  <!-- Only show Navbar and Sidebar if the current route is not '/' or '/login' or '/register' -->
-  
+
   <div class="app">
-  <div v-if="!isLoginOrRegister">
-    <div class="navbar">
-      <Navbar />
-    </div>
-    <div class="content">
-      <div class="sidebar">
-        <Sidebar />
+    <div v-if="!isLoginOrRegister">
+      <div class="navbar">
+        <Navbar />
       </div>
+      <div class="content">
+        <div class="sidebar">
+          <Sidebar />
+        </div>
+        <RouterView />
+      </div>
+    </div>
+    
+    <!-- Show only the RouterView component when on the login or register route -->
+    <div class="background_of_public_route" v-if="isLoginOrRegister">
       <RouterView />
+
+      <div class="footer mt-[150px]">
+        <Footer />
+      </div>
     </div>
   </div>
-
-
-<!-- Show only the RouterView component when on the login or register route -->
-   <div class="background_of_public_route"> 
-  <RouterView v-if="isLoginOrRegister"/>
-</div>
-</div>
-
+  <!-- <Homepage/> -->
+  <!-- <testest/> -->
+  <!-- <navbarMoneyComponecnt/> -->
+  <!-- <Navbar/> -->
+    <!-- <Buy_Sell/>  -->
 </template>
 
 <script setup>
-import { useRoute} from 'vue-router';
+import navbarMoneyComponecnt from './components/Navbar/navbar.money.componecnt.vue';
+import Footer from './components/Footer/Footer.vue';
+import test from './test.vue';
+import testest from './testest.vue';
+import { useRoute } from 'vue-router';
 import { computed } from 'vue';
-import Test_chart from "./components/Test_chart.vue";
 import Buy_Sell from "./components/MainBot_buy_sell/Buy_Sell.vue";
 import Navbar from "./components/Navbar/Navbar.vue";
 import Sidebar from "./components/Sidebar/Sidebar.vue";
-import testtest from './components/Sidebar/testtest.vue';
 const route = useRoute();
-
 
 const isLoginOrRegister = computed(() => {
   return ['/login', '/register', '/'].includes(route.path);
@@ -40,22 +47,25 @@ const isLoginOrRegister = computed(() => {
 </script>
 
 <style scoped>
-.app{
-height: 640px;
-background-color: #1f1f1f;
-/* border: 2px solid red; */
-/* z-index: 999; */
+.app {
+  height: 640px;
+  background-color: #1f1f1f;
+  /* border: 2px solid red; */
+  /* z-index: 999; */
 
 }
+
 .content {
   display: flex;
   justify-content: space-between;
 }
-.background_of_public_route{
+
+.background_of_public_route {
   background-color: #1f1f1f;
 }
-.navbar{
-}
+
+.navbar {}
+
 .chart_trading {
   /* border: 2px solid red; */
 
@@ -74,7 +84,11 @@ background-color: #1f1f1f;
   height: 550px;
 
 }
-.chart_trading, .buy_sell, .sidebar {
-  overflow: hidden; /* Disable scrolling on specific elements */
+
+.chart_trading,
+.buy_sell,
+.sidebar {
+  overflow: hidden;
+  /* Disable scrolling on specific elements */
 }
 </style>

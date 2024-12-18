@@ -24,7 +24,7 @@
     </div>
     <div class="buy_sell">
 
-      <Buy_Sell />
+      <Buy_Sell/>
 
     </div>
 
@@ -35,13 +35,13 @@
 
 <script setup lang="js">
 import { ref, computed } from "vue";
-import Test_chart from "../components/Test_chart.vue";
+import BTC from "./module/btc-trading/views/index.vue";
 // import ETHChart from "../components/ETHChart.vue";
-import ETH from "./ETH.vue";
+import ETH from "./module/eht-trading/views/index.vue";
 import Buy_Sell from "../components/MainBot_buy_sell/Buy_Sell.vue";
 
 const tabs = ref([
-  { icon: "🟠", title: "BTC/USDT", category: "Crypto", component: Test_chart },
+  { icon: "🟠", title: "BTC/USDT", category: "Crypto", component: BTC },
   { icon: "⚪", title: "ETH/USDT", category: "Crypto", component: ETH },
 ]);
 
@@ -49,7 +49,7 @@ const activeTab = ref(0);
 
 // Computed property to determine the active component
 const activeComponent = computed(() => {
-  return tabs.value[activeTab.value]?.component || Test_chart; // Default to Test_chart
+  return tabs.value[activeTab.value]?.component || BTC; // Default to BTC
 });
 
 // Methods
@@ -62,7 +62,7 @@ const addTab = () => {
     icon: "🟡",
     title: "NEW/PAIR",
     category: "Crypto",
-    component: Test_chart, // Default component for new tabs
+    component: BTC, // Default component for new tabs
   });
 };
 

@@ -143,7 +143,7 @@ class TimeUntilNextCandlestickView(APIView):
         if seconds_left == 60 and current_time != last_toggled:
             is_button_enter = not is_button_enter
             cache.set('is_button_enter', is_button_enter)
-            cache.set('last_toggled', current_time)  # อัปเดตเวลาในการสลับ
+            cache.set('last_toggled', current_time)
             # print(f"หลังการสลับสถานะ: is_button_enter={is_button_enter}")
             
             

@@ -16,7 +16,16 @@ class Order(Base_model):
         (STATUS_COMPLETED, 'Completed')
     ]
     
+    REAL_PRICE = 'real_price'
+    DEMO_PRICE = 'demo_price'
+    
+    PIRCE_TYPE_CHOICES = [
+        (REAL_PRICE, 'real_price'),
+        (DEMO_PRICE, 'demo_price')
+    ]
+    
     user_id = models.ForeignKey(User, related_name='orders', on_delete=models.CASCADE)
+    price_type = models.CharField(max_length=100, choices=PIRCE_TYPE_CHOICES, blank=True, null=True)
     order_type = models.CharField(max_length=10, choices=TYPE_CHOICES, blank=False, null=False)
     price = models.DecimalField(max_digits=15, decimal_places=2, blank=False, null=False)
     created_at = models.DateTimeField(auto_now_add=True)  # auto_now_add=True will set the date when the order is created
@@ -41,6 +50,15 @@ class Trade(Base_model):
         ('failed', 'Failed'),
     ]
     
+    REAL_PRICE = 'real_price'
+    DEMO_PRICE = 'demo_price'
+    
+    PIRCE_TYPE_CHOICES = [
+        (REAL_PRICE, 'real_price'),
+        (DEMO_PRICE, 'demo_price')
+    ]
+    
+    price_type = models.CharField(max_length=100, choices=PIRCE_TYPE_CHOICES, blank=True, null=True)
     trade_type = models.CharField(max_length=10, choices=TYPE_CHOICES, blank=False, null=False)
     price = models.DecimalField(max_digits=15, decimal_places=2, blank=False, null=False)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, blank=False, null=False)

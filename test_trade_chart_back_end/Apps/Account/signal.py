@@ -115,7 +115,7 @@ def create_wallet_for_user(sender, instance, created, **kwargs):
         # Create a new wallet for the user when the user is created
         Wallet.objects.create(
             currency="USDT",
-            balance=0,
+            real_balance=0,
             reserved=0,
             admin_wallet=admin_wallet,
             user_id=instance

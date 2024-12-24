@@ -1,5 +1,7 @@
 
+
 from django.forms import ValidationError
+import httpx
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -15,6 +17,10 @@ from datetime import datetime, timedelta
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.core.cache import cache
+import json
+import logging
+logger = logging.getLogger(__name__)
+
 
 class Trading(APIView):
     permission_classes = [AllowAny]
@@ -27,6 +33,7 @@ class Trading(APIView):
             "limit": 1  # Fetch the latest candlestick
         }
         self.wallet = None
+        self.price_type = None
 
     def post(self, request, *args, **kwargs):
         try:
@@ -34,94 +41,409 @@ class Trading(APIView):
             order_type = request.data.get('order_type')
             symbol = request.data.get('symbol', 'BTCUSDT')
             price = float(request.data.get('price', 0))
-
+            price_demo = request.data.get("tradeMode")
             if order_type not in ["buy", "sell"]:
                 return Response({"error": "ประเภทคำสั่งไม่ถูกต้อง"}, status=status.HTTP_400_BAD_REQUEST)
 
-            if price <= 0:
-                return Response({"error": "ราคาต้องมากกว่า 0"}, status=status.HTTP_400_BAD_REQUEST)
-
-            # ดึงข้อมูลกระเป๋าเงินของผู้ใช้และตรวจสอบยอดคงเหลือ
-            self.wallet = self.get_user_wallet(user)
-            if not self.validate_wallet_balance(order_type, price):
-                return Response({"error": "ยอดเงินไม่เพียงพอสำหรับคำสั่งนี้"}, status=status.HTTP_400_BAD_REQUEST)
-
-            self.update_wallet(order_type, price)
-            self.wallet.save()
-
-            order = Order.objects.create(
-                user_id=user,
-                order_type=order_type,
-                price=price,
-                status=Order.STATUS_PENDING,
-                symbol=symbol
-            )
-
-            # สะสมราคาใน cache
-            cache_key = f"trade_{user.id}_price_total"
-            trade_data = cache.get(cache_key, {"total_price": 0})
-            trade_data["total_price"] += price
-            cache.set(cache_key, trade_data)
-
-
-            last_candle_start = self.fetch_candlestick_data(symbol, 2)
-            print("amountprice = ", trade_data["total_price"])
-           
-            
-            
-            print("wait for next candleww")
-            last_request_cache_key = f"trade_{user.id}_last_request"
-            cache.set(last_request_cache_key, {"total_price": trade_data["total_price"] , "symbol": symbol, "order_type": order_type})
-            
-            
-            # รอให้ข้อมูลอัพเดท (เช่น 2 นาที)
-            print("wait for next candle")
-            self.get_next_candlestick_time()
-
-    
-            # ดึงข้อมูลคำขอล่าสุดจาก cache
-            last_request = cache.get(last_request_cache_key)
-
-            if last_request:
-                total_price = last_request["total_price"]
-                symbol = last_request["symbol"]
-                order_type = last_request["order_type"]
-
-                # ทำการ execute trade โดยใช้ข้อมูลจากคำขอล่าสุด
-                trade_result = self.execute_trade(order_type, symbol, total_price)
-                win_or_loss = self.calculate_trade_outcome(order_type, symbol, last_candle_start, total_price)
+            if price_demo:
+                self.price_type = Order.DEMO_PRICE
             else:
-                # กรณีที่ไม่มีข้อมูลใน cache
-                trade_result = {"error": "ไม่มีข้อมูลคำขอล่าสุดใน cache"}
-                win_or_loss = None
-            # ทำการ execute trade
-            # trade_result = self.execute_trade(order_type, symbol, total_price)
-            # win_or_loss = self.calculate_trade_outcome(order_type, symbol, last_candle_start, total_price)
+                self.price_type = Order.REAL_PRICE
 
-            # อัพเดทสถานะคำสั่ง
-            order.status = Order.STATUS_COMPLETED
-            order.save()
+            # เรียกใช้ method process_trade สำหรับการเทรดทั้งแบบเดโมและจริง
+            trade_result = self.process_trade(user, order_type, price, symbol, price_demo, self.price_type)
+
+            return Response(trade_result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error processing trade: {e}")
+            return Response({"error": "เกิดข้อผิดพลาดในการดำเนินการคำสั่ง"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # if priceDemo is True:
+            #     if order_type not in ["buy", "sell"]:
+            #         return Response({"error": "ประเภทคำสั่งไม่ถูกต้อง"}, status=status.HTTP_400_BAD_REQUEST)
+
+            #     if price <= 0:
+            #         return Response({"error": "ราคาต้องมากกว่า 0"}, status=status.HTTP_400_BAD_REQUEST)
+                
+            #     self.wallet = self.get_user_wallet(user)
+            #     if not self.validate_wallet_balance_demo(order_type, price):
+            #         return Response({"error": "ยอดเงินไม่เพียงพอสำหรับคำสั่งนี้"}, status=status.HTTP_400_BAD_REQUEST)
+            #     self.update_wallet_demo(order_type, price)
+            #     self.wallet.save()
+                
+            #     order = Order.objects.create(
+            #             user_id=user,
+            #             order_type=order_type,
+            #             price=price,
+            #             status=Order.STATUS_PENDING,
+            #             symbol=symbol,
+            #             price_type = Order.DEMO_PRICE
+            #         )
+            #     if order_type in ["sell","SELL", "Sell"]:
+                    
+            #         # สะสมราคาใน cache
+            #         cache_key_sell_demo = f"trade_{user.id}_price_total_sell_demo"
+            #         trade_data = cache.get(cache_key_sell_demo, {"total_price": 0})
+            #         trade_data["total_price"] += price
+            #         cache.set(cache_key_sell_demo, trade_data)
+                    
+            #         last_request_cache_key_sell_demo = f"trade_{user.id}_last_request_sell_demo"
+            #         cache.set(last_request_cache_key_sell_demo, {"total_price": trade_data["total_price"] , "symbol": symbol, "order_type": order_type})
+                    
+            #         self.get_next_candlestick_time()
+                    
+            #         last_candle_start_sell = self.fetch_candlestick_data_async(symbol, 2)
+                    
+            #         self.wait_1_scondes()
+                    
+            #         self.get_next_candlestick_time()
+                    
+            #         last_request_sell_demo = cache.get(last_request_cache_key_sell_demo)
+                    
+                    
+            #         if last_request_sell_demo:
+            #             total_price = last_request_sell_demo["total_price"]
+            #             symbol = last_request_sell_demo["symbol"]
+            #             order_type = last_request_sell_demo["order_type"]
+            #             # ทำการ execute trade โดยใช้ข้อมูลจากคำขอล่าสุด
+            #             trade_result_sell_demo = self.execute_trade(order_type, symbol, total_price)
+            #             win_or_loss = self.calculate_trade_outcome_demo(order_type, symbol, last_candle_start_sell, total_price)
+            #         else:
+            #             trade_result_sell_demo = {"error": "ไม่มีข้อมูลคำขอล่าสุดใน cache"}
+            #             win_or_loss = None
+            #         # อัพเดทสถานะคำสั่ง
+            #         order.status = Order.STATUS_COMPLETED
+            #         order.save()
+            #         # บันทึกการเทรดในฐานข้อมูล
+            #         timestamp = timezone.now()
+            #         Trade.objects.create(
+            #             user_id=user,
+            #             trade_type=order_type,
+            #             price=total_price,  # ใช้ total_price แทน amountPrice
+            #             timestamp=timestamp,
+            #             status=Trade.STATUS_COMPLETED,
+            #             symbol=symbol,
+            #             price_type = Trade.DEMO_PRICE
+            #         )
+            #         # ส่งข้อมูลการเทรดผ่าน WebSocket
+            #         trade_result_sell_demo["win_or_loss"] = win_or_loss
+            #         channel_layer = get_channel_layer()
+            #         cache.set(last_request_cache_key_sell, {"trade_result_sell_demo": trade_result_sell_demo})
+            #         # print("trading_buy_sell", {f"user_id {user}, trade_data {trade_result_sell}"})
+            #         try:
+            #             async_to_sync(channel_layer.group_send)(
+            #                 "trading_buy_sell",
+            #                 {
+            #                     'type': 'send_trade_update',
+            #                     'trade_data': trade_result_sell_demo
+            #                 }
+            #             )
+            #         except Exception as ws_error:
+            #             # บันทึกข้อผิดพลาดของ WebSocket
+            #             logger.error(f"WebSocket error: {ws_error}")
+            #         cache.delete(cache_key_sell)
+            #         cache.delete(last_request_cache_key_sell)
+            #         return Response(trade_result_sell, status=status.HTTP_200_OK)
+            #     if order_type in ["buy","BUY", "Buy"]:
+                
+            #         # สะสมราคาใน cache
+            #         cache_key_buy = f"trade_{user.id}_price_total_buy_demo"
+            #         trade_data = cache.get(cache_key_buy, {"total_price": 0})
+            #         trade_data["total_price"] += price
+            #         cache.set(cache_key_buy, trade_data)
+            #         # print("wait for next candleww")
+            #         last_request_cache_key_buy = f"trade_{user.id}_last_request_buy_demo"
+            #         cache.set(last_request_cache_key_buy, {"total_price": trade_data["total_price"] , "symbol": symbol, "order_type": order_type})
+
+            #         self.get_next_candlestick_time()
+                    
+            #         last_candle_start_buy = self.fetch_candlestick_data_async(symbol, 2)
+                    
+            #         self.wait_1_scondes()
+                    
+            #         self.get_next_candlestick_time()
+                    
+            #         last_request_buy = cache.get(last_request_cache_key_buy)
+            #         if last_request_buy:
+            #             total_price = last_request_buy["total_price"]
+            #             symbol = last_request_buy["symbol"]
+            #             order_type = last_request_buy["order_type"]
+                        
+            #             trade_result_buy_demo = self.execute_trade(order_type, symbol, total_price)
+            #             win_or_loss = self.calculate_trade_outcome_demo(order_type, symbol, last_candle_start_buy, total_price)
+            #         else:
+            #             # กรณีที่ไม่มีข้อมูลใน cache
+            #             trade_result_buy_demo = {"error": "ไม่มีข้อมูลคำขอล่าสุดใน cache"}
+            #             win_or_loss = None
+            #         # ทำการ execute trade
+            #         # trade_result = self.execute_trade(order_type, symbol, total_price)
+            #         # win_or_loss = self.calculate_trade_outcome(order_type, symbol, last_candle_start, total_price)
+            #         # อัพเดทสถานะคำสั่ง
+            #         order.status = Order.STATUS_COMPLETED
+            #         order.save()
+            #         # บันทึกการเทรดในฐานข้อมูล
+            #         timestamp = timezone.now()
+            #         Trade.objects.create(
+            #             user_id=user,
+            #             trade_type=order_type,
+            #             price=total_price,  # ใช้ total_price แทน amountPrice
+            #             timestamp=timestamp,
+            #             status=Trade.STATUS_COMPLETED,
+            #             symbol=symbol,
+            #             price_type = Trade.DEMO_PRICE
+            #         )
+                    
+            #         # ส่งข้อมูลการเทรดผ่าน WebSocket
+            #         trade_result_buy_demo["win_or_loss"] = win_or_loss
+            #         channel_layer = get_channel_layer()
+            #         cache.set(last_request_cache_key_buy, {"trade_result_buy_demo": trade_result_buy_demo})
+            #         # print("trading_buy_sell", {f"user_id {user}, trade_data {trade_result}"})
+            #         try:
+            #             async_to_sync(channel_layer.group_send)(
+            #                 "trading_buy_sell",
+            #                 {
+            #                     'type': 'send_trade_update',
+            #                     'trade_data': trade_result_buy_demo
+            #                 }
+            #             )
+            #         except Exception as ws_error:
+            #             # บันทึกข้อผิดพลาดของ WebSocket
+            #             logger.error(f"WebSocket error: {ws_error}")
+            #         cache.delete(cache_key_buy)
+            #         cache.delete(last_request_cache_key_buy)
+            #         return Response(trade_result_buy, status=status.HTTP_200_OK)
             
 
+            # if priceDemo:
+            #     if order_type not in ["buy", "sell"]:
+            #         return Response({"error": "ประเภทคำสั่งไม่ถูกต้อง"}, status=status.HTTP_400_BAD_REQUEST)
 
+            #     if price <= 0:
+            #         return Response({"error": "ราคาต้องมากกว่า 0"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # บันทึกการเทรดในฐานข้อมูล
-            timestamp = timezone.now()
-            Trade.objects.create(
-                user_id=user,
-                trade_type=order_type,
-                price=total_price,  # ใช้ total_price แทน amountPrice
-                timestamp=timestamp,
-                status=Trade.STATUS_COMPLETED,
-                symbol=symbol
-            )
+            #     self.wallet = self.get_user_wallet(user)
+            #     if not self.validate_wallet_balance_real(order_type, price):
+            #         return Response({"error": "ยอดเงินไม่เพียงพอสำหรับคำสั่งนี้"}, status=status.HTTP_400_BAD_REQUEST)
+            #     self.update_wallet_real(order_type, price)
+            #     self.wallet.save()
 
-            # ส่งข้อมูลการเทรดผ่าน WebSocket
-            trade_result["win_or_loss"] = win_or_loss
+            #     order = Order.objects.create(
+            #             user_id=user,
+            #             order_type=order_type,
+            #             price=price,
+            #             status=Order.STATUS_PENDING,
+            #             symbol=symbol,
+            #             price_type = Order.REAL_PRICE
+            #         )
+            #     if order_type in ["sell","SELL", "Sell"]:
+            #         # สะสมราคาใน cache
+            #         cache_key_sell = f"trade_{user.id}_price_total_sell"
+            #         trade_data = cache.get(cache_key_sell, {"total_price": 0})
+            #         trade_data["total_price"] += price
+            #         cache.set(cache_key_sell, trade_data)
+            #         # print("wait for next candleww")
+            #         last_request_cache_key_sell = f"trade_{user.id}_last_request_sell"
+            #         cache.set(last_request_cache_key_sell, {"total_price": trade_data["total_price"] , "symbol": symbol, "order_type": order_type})
+            #         self.get_next_candlestick_time()
+            #         last_candle_start_sell = self.fetch_candlestick_data_async(symbol, 2)
+            #         self.wait_1_scondes()
+            #         self.get_next_candlestick_time()
+            #         # ดึงข้อมูลคำขอล่าสุดจาก cache
+            #         last_request_sell = cache.get(last_request_cache_key_sell)
+            #         if last_request_sell:
+            #             total_price = last_request_sell["total_price"]
+            #             symbol = last_request_sell["symbol"]
+            #             order_type = last_request_sell["order_type"]
+            #             # ทำการ execute trade โดยใช้ข้อมูลจากคำขอล่าสุด
+            #             trade_result_sell = self.execute_trade(order_type, symbol, total_price)
+            #             win_or_loss = self.calculate_trade_outcome_real(order_type, symbol, last_candle_start_sell, total_price)
+            #         else:
+            #             # กรณีที่ไม่มีข้อมูลใน cache
+            #             trade_result = {"error": "ไม่มีข้อมูลคำขอล่าสุดใน cache"}
+            #             win_or_loss = None
+            #         # อัพเดทสถานะคำสั่ง
+            #         order.status = Order.STATUS_COMPLETED
+            #         order.save()
+            #         # บันทึกการเทรดในฐานข้อมูล
+            #         timestamp = timezone.now()
+            #         Trade.objects.create(
+            #             user_id=user,
+            #             trade_type=order_type,
+            #             price=total_price,  # ใช้ total_price แทน amountPrice
+            #             timestamp=timestamp,
+            #             status=Trade.STATUS_COMPLETED,
+            #             symbol=symbol,
+            #             price_type = Trade.REAL_PRICE
+            #         )
+            #         # ส่งข้อมูลการเทรดผ่าน WebSocket
+            #         trade_result_sell["win_or_loss"] = win_or_loss
+            #         channel_layer = get_channel_layer()
+            #         cache.set(last_request_cache_key_sell, {"trade_result_sell": trade_result_sell})
+            #         # print("trading_buy_sell", {f"user_id {user}, trade_data {trade_result_sell}"})
+            #         try:
+            #             async_to_sync(channel_layer.group_send)(
+            #                 "trading_buy_sell",
+            #                 {
+            #                     'type': 'send_trade_update',
+            #                     'trade_data': trade_result_sell
+            #                 }
+            #             )
+            #         except Exception as ws_error:
+            #             # บันทึกข้อผิดพลาดของ WebSocket
+            #             logger.error(f"WebSocket error: {ws_error}")
+            #         cache.delete(cache_key_sell)
+            #         cache.delete(last_request_cache_key_sell)
+            #         return Response(trade_result_sell, status=status.HTTP_200_OK)
+                
+            #     if order_type in ["buy","BUY", "Buy"]:
+                
+            #         # สะสมราคาใน cache
+            #         cache_key_buy = f"trade_{user.id}_price_total_buy"
+            #         trade_data = cache.get(cache_key_buy, {"total_price": 0})
+            #         trade_data["total_price"] += price
+            #         cache.set(cache_key_buy, trade_data)
+            #         # print("wait for next candleww")
+            #         last_request_cache_key_buy = f"trade_{user.id}_last_request_buy"
+            #         cache.set(last_request_cache_key_buy, {"total_price": trade_data["total_price"] , "symbol": symbol, "order_type": order_type})
+            #         # รอให้ข้อมูลอัพเดท (เช่น 2 นาที)
+            #         # print("wait for next candle")
+            #         self.get_next_candlestick_time()
+            #         last_candle_start_buy = self.fetch_candlestick_data_async(symbol, 2)
+            #         self.wait_1_scondes()
+            #         self.get_next_candlestick_time()
+            #         # ดึงข้อมูลคำขอล่าสุดจาก cache
+            #         last_request_buy = cache.get(last_request_cache_key_buy)
+            #         if last_request_buy:
+            #             total_price = last_request_buy["total_price"]
+            #             symbol = last_request_buy["symbol"]
+            #             order_type = last_request_buy["order_type"]
+            #             # ทำการ execute trade โดยใช้ข้อมูลจากคำขอล่าสุด
+            #             trade_result_buy = self.execute_trade(order_type, symbol, total_price)
+            #             win_or_loss = self.calculate_trade_outcome_real(order_type, symbol, last_candle_start_buy, total_price)
+            #         else:
+            #             # กรณีที่ไม่มีข้อมูลใน cache
+            #             trade_result_buy = {"error": "ไม่มีข้อมูลคำขอล่าสุดใน cache"}
+            #             win_or_loss = None
+            #         # ทำการ execute trade
+            #         # trade_result = self.execute_trade(order_type, symbol, total_price)
+            #         # win_or_loss = self.calculate_trade_outcome(order_type, symbol, last_candle_start, total_price)
+            #         # อัพเดทสถานะคำสั่ง
+            #         order.status = Order.STATUS_COMPLETED
+            #         order.save()
+            #         # บันทึกการเทรดในฐานข้อมูล
+            #         timestamp = timezone.now()
+            #         Trade.objects.create(
+            #             user_id=user,
+            #             trade_type=order_type,
+            #             price=total_price,  # ใช้ total_price แทน amountPrice
+            #             timestamp=timestamp,
+            #             status=Trade.STATUS_COMPLETED,
+            #             symbol=symbol,
+            #             price_type = Trade.REAL_PRICE
+            #         )
+            #         # ส่งข้อมูลการเทรดผ่าน WebSocket
+            #         trade_result_buy["win_or_loss"] = win_or_loss
+            #         channel_layer = get_channel_layer()
+            #         cache.set(last_request_cache_key_buy, {"trade_result_buy": trade_result_buy})
+            #         # print("trading_buy_sell", {f"user_id {user}, trade_data {trade_result}"})
+            #         try:
+            #             async_to_sync(channel_layer.group_send)(
+            #                 "trading_buy_sell",
+            #                 {
+            #                     'type': 'send_trade_update',
+            #                     'trade_data': trade_result_buy
+            #                 }
+            #             )
+            #         except Exception as ws_error:
+            #             # บันทึกข้อผิดพลาดของ WebSocket
+            #             logger.error(f"WebSocket error: {ws_error}")
+            #         cache.delete(cache_key_buy)
+            #         cache.delete(last_request_cache_key_buy)
+            #         return Response(trade_result_buy, status=status.HTTP_200_OK)
 
-            channel_layer = get_channel_layer()
-            cache.set(last_request_cache_key, {"trade_result": trade_result})
-            print("trading_buy_sell", {f"user_id {user}, trade_data {trade_result}"})
+    def process_trade(self, user, order_type, price, symbol, price_demo, price_type):
+        
+        if price <= 0:
+            return Response({"error": "ราคาต้องมากกว่า 0"}, status=status.HTTP_400_BAD_REQUEST)
+
+        self.wallet = self.get_user_wallet(user)
+        
+        if price_demo:
+            if not self.validate_wallet_balance_demo(order_type, price):
+                return Response({"error": "ยอดเงินไม่เพียงพอสำหรับคำสั่งนี้"}, status=status.HTTP_400_BAD_REQUEST)
+            self.update_wallet_demo(price)
+        else:
+            if not self.validate_wallet_balance_real(order_type, price):
+                return Response({"error": "ยอดเงินไม่เพียงพอสำหรับคำสั่งนี้"}, status=status.HTTP_400_BAD_REQUEST)
+            self.update_wallet_real(price)
+
+        self.wallet.save()
+
+        order = Order.objects.create(
+            user_id=user,
+            order_type=order_type,
+            price=price,
+            status=Order.STATUS_PENDING,
+            symbol=symbol,
+            price_type=price_type
+        )
+
+        # ประมวลผลคำสั่งซื้อหรือขาย
+        cache_key = f"trade_{user.id}_price_total_{order_type.lower()}_{price_type.lower()}"
+        print(cache_key)
+        trade_data = cache.get(cache_key, {"total_price": 0})
+        trade_data["total_price"] += price
+        cache.set(cache_key, trade_data)
+
+        # กำหนดแคชสำหรับคำขอล่าสุด
+        last_request_cache_key = f"trade_{user.id}_last_request_{order_type.lower()}_{price_type.lower()}"
+        cache.set(last_request_cache_key, {"total_price": trade_data["total_price"], "symbol": symbol, "order_type": order_type})
+
+        self.get_next_candlestick_time()
+        
+        last_candle_start = self.fetch_candlestick_data_async(symbol, 2)
+        
+        self.wait_1_scondes()
+        
+        self.get_next_candlestick_time()
+
+        last_request = cache.get(last_request_cache_key)
+        if last_request:
+            total_price = last_request["total_price"]
+            symbol = last_request["symbol"]
+            order_type = last_request["order_type"]
+            trade_result = self.execute_trade(order_type, symbol, total_price)
+            if price_type == Order.REAL_PRICE:
+                win_or_loss = self.calculate_trade_outcome_real(order_type, symbol, last_candle_start, total_price)
+            else:
+                win_or_loss = self.calculate_trade_outcome_demo(order_type, symbol, last_candle_start, total_price)
+        else:
+            trade_result = {"error": "ไม่มีข้อมูลคำขอล่าสุดในแคช"}
+            win_or_loss = None
+
+        # อัปเดตสถานะคำสั่ง
+        order.status = Order.STATUS_COMPLETED
+        order.save()
+
+        # บันทึกการเทรดในฐานข้อมูล
+        timestamp = timezone.now()
+        Trade.objects.create(
+            user_id=user,
+            trade_type=order_type,
+            price=total_price,
+            timestamp=timestamp,
+            status=Trade.STATUS_COMPLETED,
+            symbol=symbol,
+            price_type=price_type
+        )
+
+        # ส่งผลลัพธ์การเทรดผ่าน WebSocket
+        trade_result["win_or_loss"] = win_or_loss
+        channel_layer = get_channel_layer()
+        cache.set(last_request_cache_key, {"trade_result": trade_result})
+        print("trading_buy_sell", {f"user_id {user}, trade_data {trade_result}"})
+        
+        try:
             async_to_sync(channel_layer.group_send)(
                 "trading_buy_sell",
                 {
@@ -129,17 +451,17 @@ class Trading(APIView):
                     'trade_data': trade_result
                 }
             )
+        except Exception as ws_error:
+            logger.error(f"WebSocket error: {ws_error}")
+        
+        cache.delete(cache_key)
+        cache.delete(last_request_cache_key)
 
-            cache.delete(cache_key)
-            cache.delete(last_request_cache_key)
-
-            return Response(trade_result, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            # หากเกิดข้อผิดพลาด
-            order.status = "failed"
-            order.save()
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return trade_result
+    
+    
+    def wait_1_scondes(self):
+        time.sleep(3)
 
     def get_user_wallet(self, user):
         if user is None:
@@ -150,46 +472,39 @@ class Trading(APIView):
         except Wallet.DoesNotExist:
             raise ValidationError({"error": "ไม่พบกระเป๋าเงินของผู้ใช้งาน"})
         
-        
-    def validate_wallet_balance(self, order_type, price):
+    @transaction.atomic
+    def validate_wallet_balance_demo(self,order_type, price):
         """ตรวจสอบว่ายอดเงินในกระเป๋าเพียงพอหรือไม่"""
-        if order_type == "buy" and self.wallet.real_balance < price:
+        if self.wallet.demo_balance < price:
             return False
-        if order_type == "sell" and self.wallet.real_balance < price:
+        return True
+    
+    @transaction.atomic
+    def validate_wallet_balance_real(self, order_type, price):
+        """ตรวจสอบว่ายอดเงินในกระเป๋าเพียงพอหรือไม่"""
+        if self.wallet.real_balance < price:
             return False
         return True
     
     
-    def fetch_candlestick_data(self, symbol, start_end):
-        """ดึงข้อมูลแท่งเทียนจาก API"""
-        start_end = int(start_end)
+    def fetch_candlestick_data_async(self, symbol, start_close):
+        start_close = int(start_close)
         self.params["symbol"] = symbol
         response = requests.get(self.endpoint, params=self.params)
         response.raise_for_status()
         data = response.json()
-        return float(data[0][start_end])
-    
-        # try:
-        #     candle_start_time = data[0][0]  # สมมติว่าเป็น timestamp ของแท่งเทียน
-        #     last_candle_start = datetime.fromtimestamp(candle_start_time / 1000)  # แปลงจาก timestamp (หากจำเป็น)
-        # except ValueError as e:
-        #     return Response({"error": "ไม่สามารถแปลงข้อมูลแท่งเทียนได้"}, status=status.HTTP_400_BAD_REQUEST)
-    
-        # return last_candle_start
-            
-    def wait_for_next_candle(self):
-        """รอจนกว่าแท่งเทียนถัดไปจะถูกสร้าง"""
-        current_time = int(time.time())
-        time_to_wait = 60 - (current_time % 60)
-        time.sleep(time_to_wait)
+        return float(data[0][start_close])
+        # async with httpx.AsyncClient() as client:
+        #     response = await client.get(self.endpoint, params={"symbol": symbol, "interval": "1m", "limit": 1})
+        #     response.raise_for_status()
+        #     return float(response.json()[0][start_close])
+
         
-    def calculate_trade_outcome(self, order_type, symbol, last_candle_start, price):
+    def calculate_trade_outcome_real(self, order_type, symbol, last_candle_start, price):
         """คำนวณผลว่ากำไร ขาดทุน หรือเท่าทุน"""
-        last_candle_close = self.fetch_candlestick_data(symbol,4)  # ดึงข้อมูลล่าสุด
+        last_candle_close = self.fetch_candlestick_data_async(symbol,4)  # ดึงข้อมูลล่าสุด
         adjusted_price = price * 1.95  # ปรับกำไร/ขาดทุน
-        
-        # print("last_candle_close", last_candle_close)
-        # print("last_candle_start", last_candle_start)
+
 
         if last_candle_close == last_candle_start:
             # print("before--",self.wallet.reserved)
@@ -233,12 +548,50 @@ class Trading(APIView):
                 self.wallet.save()
                 return "lose"
             
-    def update_wallet(self, order_type, price):
+            
+    def calculate_trade_outcome_demo(self, order_type, symbol, last_candle_start, price):
+        """คำนวณผลว่ากำไร ขาดทุน หรือเท่าทุน"""
+        last_candle_close = self.fetch_candlestick_data_async(symbol,4)  # ดึงข้อมูลล่าสุด
+        adjusted_price = price * 1.95  # ปรับกำไร/ขาดทุน
+        
+        if last_candle_close == last_candle_start:
+            self.wallet.demo_balance += price
+            self.wallet.save()
+            return "equal"
+
+        elif order_type == "buy":
+            if last_candle_close > last_candle_start:
+                self.wallet.demo_balance += adjusted_price
+                self.wallet.save()
+                self.wallet.refresh_from_db()  # รีเฟรชข้อมูลจากฐานข้อมูล
+                return f"win = {adjusted_price}"
+            else:
+                return "lose"
+
+        elif order_type == "sell":
+            if last_candle_close < last_candle_start:
+                self.wallet.demo_balance += adjusted_price
+                self.wallet.save()
+                self.wallet.refresh_from_db()
+                return f"win = {adjusted_price}"
+            else:
+                self.wallet.save()
+                return "lose"
+
+
+    def update_wallet_real(self, price):
 
         self.wallet.reserved += price
         self.wallet.real_balance -= price
 
         self.wallet.save()
+        
+    def update_wallet_demo(self, price):
+        print(f"wallet demo = {self.wallet.demo_balance}")
+        self.wallet.demo_balance -= price
+        self.wallet.save()
+        print(f"wallet demo update = {self.wallet.demo_balance}")
+        
         
     def execute_trade(self, order_type, symbol, price):
         """ทำรายการโดยอัปเดตยอดในกระเป๋าเงินของผู้ใช้"""
@@ -273,9 +626,6 @@ class Trading(APIView):
 
             # Calculate when the second candlestick will be complete
             next_candlestick_time = datetime.utcfromtimestamp(latest_timestamp / 1000) + timedelta(minutes=1)
-
-            # Add an additional minute for the next candlestick
-            next_candlestick_time += timedelta(minutes=1)
 
             current_time = datetime.utcnow()
             time_diff = next_candlestick_time - current_time

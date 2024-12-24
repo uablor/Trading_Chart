@@ -1,5 +1,6 @@
 import json
 import asyncio
+import time
 from channels.generic.websocket import AsyncWebsocketConsumer
 from binance.client import Client
 from binance.streams import BinanceSocketManager
@@ -9,7 +10,7 @@ from datetime import datetime, timedelta
 import requests
 from channels.db import database_sync_to_async
 from django.apps import apps
-
+from django.core.cache import cache
 
 class KlineConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -100,84 +101,78 @@ class KlineConsumer(AsyncWebsocketConsumer):
             )
         except Exception as e:
             print(f"Error sending to group: {e}")
-            
-  
-import json
-# import httpx
-
-
-# class CandlestickConsumer(AsyncWebsocketConsumer):
     
-#     async def connect(self):
-#         print("WebSocket Connected!")
-#         self.room_name = "candlestick_room"
-#         self.room_group_name = f"candlestick_{self.room_name}"
+            
+class CandlestickConsumer(AsyncWebsocketConsumer):
+    
+    async def connect(self):
+        self.room_name = "candlestick_room"
+        self.room_group_name = f"candlestick_{self.room_name}"
 
-#         # Join the group
-#         await self.channel_layer.group_add(
-#             self.room_group_name,
-#             self.channel_name
-#         )
+        # เข้าร่วมกลุ่ม
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            self.channel_name
+        )
 
-#         await self.accept()
+        await self.accept()
 
-#     async def disconnect(self, close_code):
-#         await self.channel_layer.group_discard(
-#             self.room_group_name,
-#             self.channel_name
-#         )
+        # เริ่มลูปเพื่อส่งเวลาแท่งเทียนถัดไปทุกๆ วินาที
+        self.send_next_candlestick_time_task = asyncio.create_task(self.send_next_candlestick_time())
 
-#     async def send_next_candlestick_time(self):
-#         # ดึงข้อมูลแท่งเทียนจาก Binance API
-#         try:
-#             url = 'https://api.binance.com/api/v3/klines'
-#             params = {
-#                 'symbol': "BTCUSDT",
-#                 'interval': '1m',
-#                 'limit': 1,  # ดึงแค่แท่งเทียนล่าสุด
-#             }
+    async def disconnect(self, close_code):
+        # ยกเลิกงานเมื่อ WebSocket ถูกตัดการเชื่อมต่อ
+        self.send_next_candlestick_time_task.cancel()
 
-#             # ใช้ httpx แทน requests
-#             async with httpx.AsyncClient() as client:
-#                 response = await client.get(url, params=params)
+        await self.channel_layer.group_discard(
+            self.room_group_name,
+            self.channel_name
+        )
 
-#             response.raise_for_status()  # ตรวจสอบข้อผิดพลาด
-#             data = response.json()
-#             print(f"Received data: {data}")
+    async def send_next_candlestick_time(self):
+        try:
+          
+            
+            
+            while True:
+                current_time = int(time.time())  # เวลาปัจจุบันในหน่วยวินาทีจาก Unix epoch
+                seconds_in_current_minute = current_time % 60
+                seconds_left = 60 - seconds_in_current_minute  # เวลาที่เหลือจนถึงนาทีถัดไป
+                        # Get the current state of is_button_enter from cache, default to False
+                is_button_enter = cache.get('is_button_enter', False)
+                last_toggled = cache.get('last_toggled', 0)
+                # print(f"ก่อนการสลับสถานะ: is_button_enter={is_button_enter}")
 
-#             if not data:
-#                 raise ValueError("No data found for this symbol")
+                # สลับสถานะเมื่อ seconds_left == 60 และไม่ได้สลับเมื่อเร็วเกินไป
+                if seconds_left == 60 and current_time != last_toggled:
+                    is_button_enter = not is_button_enter
+                    cache.set('is_button_enter', is_button_enter)
+                    cache.set('last_toggled', current_time)
+                    # print(f"หลังการสลับสถานะ: is_button_enter={is_button_enter}")
 
-#             latest_candlestick = data[0]
-#             latest_timestamp = latest_candlestick[0]  # timestamp ของแท่งเทียนล่าสุด
-#             next_candlestick_time = datetime.utcfromtimestamp(latest_timestamp / 1000) + timedelta(minutes=1)
+                    # ส่งข้อมูลเวลาที่เหลือของแท่งเทียนถัดไปและสถานะปุ่ม
+                if seconds_left > 0:
+                    await self.send(text_data=json.dumps({
+                        'next_candlestick_time': f"{seconds_left}s",
+                        'is_button_enter': is_button_enter
+                    }))
 
-#             # คำนวณจำนวน นาที่ที่เหลือ
-#             now = datetime.utcnow()
-#             time_diff = next_candlestick_time - now
-#             minutes_remaining = int(time_diff.total_seconds() // 60)  # แปลงเวลาที่เหลือเป็นนาที
+                # รอ 0.2 วินาทีก่อนดึงข้อมูลใหม่
+                await asyncio.sleep(1)
 
-#             # ส่งข้อมูลเวลาแท่งเทียนถัดไปและนาทีที่เหลือ
-#             await self.send(text_data=json.dumps({
-#                 'next_candlestick_time': next_candlestick_time.isoformat(),
-#                 'minutes_remaining': minutes_remaining
-#             }))
+        except requests.exceptions.RequestException as e:
+            print(f"เกิดข้อผิดพลาดในการดึงข้อมูลแท่งเทียน: {e}")
+        except Exception as e:
+            print(f"เกิดข้อผิดพลาด: {e}")
 
-#         except httpx.RequestError as e:
-#             await self.send(text_data=json.dumps({
-#                 'error': f'Failed to get data: {str(e)}'
-#             }))
-#         except ValueError as e:
-#             await self.send(text_data=json.dumps({
-#                 'error': str(e)
-#             }))
 
-#     async def receive(self, text_data):
-#         # รับคำขอจาก frontend ให้ส่งข้อมูลแท่งเทียนถัดไป
-#         data = json.loads(text_data)
+    async def receive(self, text_data):
+        # เมธอดนี้ยังสามารถใช้จัดการข้อความอื่นๆ ที่ส่งมาจาก frontend
+        data = json.loads(text_data)
 
-#         if data.get('request_next_candlestick_time'):
-#             await self.send_next_candlestick_time()
+        if data.get('request_next_candlestick_time'):
+            # ส่งเวลาแท่งเทียนถัดไปตามคำขอ
+            await self.send_next_candlestick_time()
 
 
 class WalletConsumer(AsyncWebsocketConsumer):
@@ -191,7 +186,7 @@ class WalletConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
         await self.accept()
-        print("WebSocket joining done ...!")
+        # print("WebSocket joining done ...!")
 
     async def disconnect(self, close_code):
         # ออกจากกลุ่ม WebSocket
@@ -215,27 +210,24 @@ class WalletConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_wallet_data(self):
         self.Wallet = apps.get_model('Account', 'Wallet')
-       
+
         # ดึงข้อมูลจากฐานข้อมูล
         wallet = self.Wallet.objects.first()  # ดึงข้อมูล wallet ตัวแรก
-        print(f"Wallet data: {wallet.real_balance}, {wallet.demo_balance}")  # พิมพ์ข้อมูล
+        # print(f"Wallet data: {wallet.real_balance}, {wallet.demo_balance}")  # พิมพ์ข้อมูล
         return {
             "real_balance": wallet.real_balance,
             "demo_balance": wallet.demo_balance
         }
 
     async def send_wallet_update(self, event):
-        print("sending to ...")
+        # print("sending to ...")
         # ส่งการอัปเดตข้อมูลไปยัง WebSocket
-        print("Event data:", event['wallet'])
+        # print("Event data:", event['wallet'])
         await self.send(text_data=json.dumps({
             "wallet": event['wallet']
         }))
-        print("send to done...")
+        # print("send to done...")
         
-        
-
-
 
 class TradingConsumer(AsyncWebsocketConsumer):
     async def connect(self):

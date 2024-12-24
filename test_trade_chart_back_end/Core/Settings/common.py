@@ -218,9 +218,12 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels_redis.core.RedisChannelLayer",  # ใช้ Redis แทน InMemoryChannelLayer
         "CONFIG": {
             "hosts": [('127.0.0.1',6379)],  # ที่อยู่ของ Redis server
+            "capacity": 1000,  # เพิ่มขนาด queue
+            "expiry": 10,      # เวลาหมดอายุของข้อความ (วินาที)
         },
     },
 }
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_USE_TLS = True
 EMAIL_HOST = "smtp.gmail.com"

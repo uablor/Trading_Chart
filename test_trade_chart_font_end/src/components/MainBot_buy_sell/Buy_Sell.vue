@@ -4,24 +4,13 @@
       <!-- Amount Section -->
       <div class="amount-section">
         <button class="adjust-button" @click="decreaseAmount">-</button>
-        <input
-          class="amount-input"
-          type="number"
-          min="0"
-          step="any"
-          v-model="price"
-        />
+        <input class="amount-input" type="number" min="0" step="any" v-model="price" />
         <button class="adjust-button" @click="increaseAmount">+</button>
       </div>
 
       <!-- Quick Amount Buttons -->
       <div class="quick-amount-buttons">
-        <button
-          v-for="value in quickAmounts"
-          :key="value"
-          @click="setAmount(value)"
-          class="quick-amount"
-        >
+        <button v-for="value in quickAmounts" :key="value" @click="setAmount(value)" class="quick-amount">
           +{{ value }}
         </button>
         <button @click="setAmount('all')" class="quick-amount">All</button>
@@ -30,37 +19,22 @@
       <!-- Profit Section -->
       <div class="profit-section">
         <span class="profit-label">Profit</span>
-        <span
-          class="profit-value"
-          :class="{ high: calculatedProfit > 0, low: calculatedProfit < 0 }"
-          >{{ profitPercentage }}%</span
-        >
-        <span
-          class="profit-amount"
-          :class="{
-            positive: calculatedProfit > 0,
-            negative: calculatedProfit < 0,
-          }"
-          >+${{ calculatedProfit.toFixed(2) }}</span
-        >
+        <span class="profit-value" :class="{ high: calculatedProfit > 0, low: calculatedProfit < 0 }">{{
+          profitPercentage }}%</span>
+        <span class="profit-amount" :class="{
+          positive: calculatedProfit > 0,
+          negative: calculatedProfit < 0,
+        }">+${{ calculatedProfit.toFixed(2) }}</span>
       </div>
 
       <!-- Buy/Sell Buttons -->
-      <button
-        class="buy-button"
-        :class="{ disabled: is_button_enter }"
-        :disabled="is_button_enter"
-        @click="queueTrade('buy', 'BTCUSDT')"
-      >
+      <button class="buy-button" :class="{ disabled: is_button_enter }" :disabled="is_button_enter"
+        @click="queueTrade('buy', 'BTCUSDT')">
         BUY
       </button>
-      <div class="countdown">{{ secondsLeft }}s</div>
-      <button
-        class="sell-button"
-        :class="{ disabled: is_button_enter }"
-        :disabled="is_button_enter"
-        @click="queueTrade('sell', 'BTCUSDT')"
-      >
+      <div class="countdown">{{ nextCandlestickTime }}</div>
+      <button class="sell-button" :class="{ disabled: is_button_enter }" :disabled="is_button_enter"
+        @click="queueTrade('sell', 'BTCUSDT')">
         SELL
       </button>
     </div>
@@ -68,6 +42,7 @@
 </template>
 
 <script setup>
+import nextCandlestickTimeComponecnt from "./nextCandlestickTime.componecnt.vue";
 import { ref, onMounted, computed } from "vue";
 import axios from "../../services/axios";
 
@@ -89,11 +64,17 @@ const pendingTrade = ref(null);
 // Reactive variable to manage button state
 const isDisabled = ref(false);
 
+import { useWalletStore } from '@/stores/walletStore';
+
+const walletStore = useWalletStore();
+const currentMode = ref(walletStore.selectedWalletMode);
+const ModeTrading = ref(currentMode.value == 'real' ? false : true);
+
 import { notification } from "ant-design-vue";
 import { SmileOutlined, FrownOutlined } from "@ant-design/icons-vue";
 import { h } from "vue";
 import { height } from "@fortawesome/free-solid-svg-icons/fa0";
-
+import { Modal, Button } from "ant-design-vue";
 const openNotificationWithIcon = (title, type) => {
   const icon =
     type == "error"
@@ -115,20 +96,6 @@ const openNotificationWithIcon = (title, type) => {
   });
 };
 
-// ฟังก์ชันดึงข้อมูลเวลาแท่งเทียนถัดไป
-const fetchTimeUntilNextCandlestick = async () => {
-  try {
-    const response = await axios.get("time_until_next_candlestick/");
-    const data = response.data; // Axios parses JSON automatically
-    secondsLeft.value = data.seconds_left;
-    // console.log("secondsLeft = ", secondsLeft.value);
-    is_button_enter.value = data.is_button_enter;
-    // console.log("btttuot = ", is_button_enter.value)
-    // console.log(`Received data: secondsLeft=${secondsLeft.value}, is_button_enter=${is_button_enter.value}`);
-  } catch (error) {
-    console.error("Error fetching time until next candlestick:", error);
-  }
-};
 
 // ฟังก์ชันบันทึกคำขอซื้อ/ขาย
 async function queueTrade(order_type, symbol) {
@@ -138,8 +105,8 @@ async function queueTrade(order_type, symbol) {
   }
   openNotificationWithIcon("Successful ...", "success");
 
-  pendingTrade.value = { order_type, symbol, price: price.value };
-
+  pendingTrade.value = { order_type, symbol, price: price.value, tradeMode: ModeTrading.value };
+  console.log(pendingTrade.value.price_type)
   await sendPendingTrade();
 }
 
@@ -169,7 +136,16 @@ async function sendPendingTrade() {
 }
 
 const socket = ref(null);
+
+const amount = ref(10);
+const quickAmounts = [5, 10, 20, 50, 100];
+const profit = ref(19.5);
+const profitPercentage = ref(95);
+
+
 onMounted(() => {
+  /////////////////////////////////////////////////////////////
+
   socket.value = new WebSocket("ws://127.0.0.1:9000/ws/trading/"); // Replace with your WebSocket URL
 
   socket.value.onopen = () => {
@@ -201,8 +177,9 @@ onMounted(() => {
     }
 
     tradeResult.value = tradeMessage.trim(); // ลบช่องว่างเกินออก
-
-    if ((tradeMessage && !data.win_or_loss == "lose" )|| !data.win_or_loss == "equal" ) {
+    console.log("ssssssssssssss", data.win_or_loss.startsWith("win"))
+    console.log(data.win_or_loss)
+    if (tradeMessage && data.win_or_loss.startsWith("win")) {
       countDown("ການຊື້ຂາຍສຳເລັດ ", tradeResult.value);
     }
   };
@@ -210,19 +187,7 @@ onMounted(() => {
   socket.value.onclose = () => {
     console.log("WebSocket disconnected");
   };
-
-  fetchTimeUntilNextCandlestick();
-  setInterval(async () => {
-    await fetchTimeUntilNextCandlestick();
-  }, 1000);
 });
-
-const amount = ref(10);
-const quickAmounts = [5, 10, 20, 50, 100];
-const profit = ref(19.5);
-const profitPercentage = ref(95);
-
-import { Modal, Button } from "ant-design-vue";
 
 // Custom modal content component
 const ModalContent = {
@@ -299,6 +264,60 @@ const setAmount = (value) => {
     price.value += value;
   }
 };
+
+
+import { onBeforeUnmount } from 'vue';
+
+const nextCandlestickTime = ref('Loading...');
+
+// WebSocket connection URL (replace with your actual WebSocket URL)
+const socketUrl = 'ws://127.0.0.1:9000/ws/candlestick/';
+
+// WebSocket instance
+let socket2 = null;
+
+onMounted(() => {
+  // Initialize the WebSocket connection
+  socket2 = new WebSocket(socketUrl);
+
+  // When the connection is established, send a request for the next candlestick time
+  socket2.onopen = () => {
+    console.log('WebSocket connected');
+    socket2.send(JSON.stringify({ request_next_candlestick_time: true }));
+  };
+
+  // Handle incoming messages
+  socket2.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    console.log('Received data:', data.is_button_enter);
+    if (data.next_candlestick_time) {
+      nextCandlestickTime.value = data.next_candlestick_time;
+    }
+    is_button_enter.value = data.is_button_enter;
+
+    // console.log('is_button_enter value:', is_button_enter.value);
+
+  };
+
+  // Handle WebSocket errors
+  socket2.onerror = (error) => {
+    console.error('WebSocket Error:', error);
+  };
+
+  // Handle WebSocket close
+  socket2.onclose = () => {
+    console.log('WebSocket closed');
+  };
+
+
+
+});
+
+onBeforeUnmount(() => {
+  if (socket2) {
+    socket2.close();
+  }
+});
 </script>
 
 <style scoped>
@@ -335,6 +354,20 @@ const setAmount = (value) => {
 .notification .ant-notification-notice-message {
   color: white !important;
   /* Force white font for error notifications */
+}
+
+.countdown {
+  width: 100%;
+  height: 50px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  background-color: #333333;
+  color: white;
+  padding: 14px 8px 8px 8px;
+  border-radius: 8px;
+  font-weight: bold;
 }
 
 .container {

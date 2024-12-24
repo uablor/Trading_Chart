@@ -34,11 +34,14 @@
 </template>
 
 <script setup lang="js">
+import { markRaw } from 'vue';
 import { ref, computed } from "vue";
+import Buy_Sell from '../components/MainBot_buy_sell/Buy_Sell.vue';
 import BTC from "./module/btc-trading/views/index.vue";
-// import ETHChart from "../components/ETHChart.vue";
 import ETH from "./module/eht-trading/views/index.vue";
-import Buy_Sell from "../components/MainBot_buy_sell/Buy_Sell.vue";
+
+// const BTCComponent = markRaw(BTC);
+// const ETHComponent = markRaw(ETH);
 
 const tabs = ref([
   { icon: "🟠", title: "BTC/USDT", category: "Crypto", component: BTC },

@@ -85,7 +85,7 @@ const removeTab = (index) => {
   /* padding: 10px; */
   height: 85vh;
   background-color: #1f1f1f;
-  width: 100%;
+  width: calc(88% + 15px);
   z-index: 100;
   /* background-color: #eb0404; */
 
@@ -93,15 +93,18 @@ const removeTab = (index) => {
 
 .chart_trading {
  margin-top: 20px;
- margin-left: 50px;
+ /* margin-left: 10px; */
+  /* border: 2px solid red; */
+  /* padding-right:-50px ; */
   /* border: 2px solid red; */
 
 }
 
 .buy_sell {
   /* border: 2px solid red; */
+  /* border: 2px solid rgb(163, 31, 240); */
   height: 100%;
-  width: 45vh;
+  width: 47vh; 
   background-color: rgb(102, 102, 102);
 }
 
@@ -112,7 +115,7 @@ const removeTab = (index) => {
 
 
   .tabs {
-  border-top: 1px solid rgb(163, 31, 240);
+  /* border-top: 1px solid rgb(163, 31, 240); */
   border-left: 1px solid rgb(163, 31, 240);
   border-right: 1px solid rgb(163, 31, 240);
   position: absolute;

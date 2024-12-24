@@ -343,7 +343,7 @@ const setAmount = (value) => {
   display: flex;
   justify-content: center;
   align-items: center;
-  border-top: 1px solid rgb(163, 31, 240);
+  /* border-top: 1px solid rgb(163, 31, 240); */
   border-left: 1px solid rgb(163, 31, 240);
   border-right: 1px solid rgb(163, 31, 240);
   /* border-radius: 12px; */

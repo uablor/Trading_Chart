@@ -79,10 +79,10 @@ const isLoginOrRegister = computed(() => {
 }
 
 .sidebar {
-  border-right: 2px solid rgb(125, 8, 172);
+  /* border-right: 2px solid rgb(125, 8, 172); */
   margin-right: 10px;
   height: 550px;
-
+  width: 150px;
 }
 
 .chart_trading,

@@ -1,4 +1,4 @@
-<template>
+<template >
     <div class="chart-container">
       <!-- <p v-if="reconnectAttempts > 0 && reconnectAttempts <= maxReconnectAttempts">กำลังเชื่อมต่อใหม่... (พยายาม {{
         reconnectAttempts }}/{{ maxReconnectAttempts }})</p>

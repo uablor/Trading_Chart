@@ -1,13 +1,6 @@
 <template>
     <div class="chart-container">
-      <!-- <p v-if="reconnectAttempts > 0 && reconnectAttempts <= maxReconnectAttempts">กำลังเชื่อมต่อใหม่... (พยายาม {{
-        reconnectAttempts }}/{{ maxReconnectAttempts }})</p>
-  
-      <p v-if="reconnectAttempts === 0">WebSocket เชื่อมต่อแล้ว</p> -->
-      <!-- <p v-if="secondsLeft > 0">เวลาที่เหลือจนถึงแท่งเทียนถัดไป: {{ secondsLeft }} วินาที</p> -->
-  
-  
-      <div ref="chart" class="chart"></div>
+      <div ref="chart" id="chart" class="chart"></div>
     </div>
   </template>
   
@@ -20,44 +13,66 @@
   const seriesData = ref([]); // Initial data for the chart
   const reconnectAttempts = ref(0); // Track reconnection attempts
   const maxReconnectAttempts = ref(10); // Limit reconnection attempts
-  // ประกาศตัวแปร secondsLeft ด้วย ref()
-  
-  
-  // const secondsLeft = ref(0);
-  // ฟังก์ชันคำนวณเวลาที่เหลือจนถึงแท่งเทียนถัดไป
-  // const calculateTimeUntilNextCandlestick = () => {
-  //   const currentTime = Math.floor(Date.now() / 1000); // เวลาปัจจุบันในหน่วยวินาที
-  //   const secondsInCurrentMinute = currentTime % 60; // วินาทีที่เหลือในนาทีนี้
-  //   secondsLeft.value = 60 - secondsInCurrentMinute; // เวลาที่เหลือจนถึงนาทีถัดไป
-  // };
-  
-  // เรียกใช้ฟังก์ชันทุกๆ วินาทีเพื่ออัปเดตเวลานับถอยหลัง
-  // const updateCountdown = () => {
-  //   calculateTimeUntilNextCandlestick();
-  //   setInterval(calculateTimeUntilNextCandlestick, 1000); // อัปเดตทุกๆ วินาที
-  // };
-  
-  // Initialize the chart after the component is mounted
+
+
+
   const initChart = async () => {
+
     await nextTick();
     chart.value = createChart(chart.value, {
-      width: 900,
-      height: 500,
+      width: 950,
+      height: 450,
       layout: {
         background: { color: '#1f1f1f' },
         textColor: '#fff',
       },
       grid: {
-        vertLines: { color: 'rgb(102, 102, 102)' },
-        horzLines: { color: 'rgb(102, 102, 102)' },
+        vertLines: { color: 'rgb(102, 102, 102, 0.2)' },
+        horzLines: { color: 'rgb(102, 102, 102, 0.2)' },
       },
       timeScale: {
-        timeVisible: true,
-        secondsVisible: false,
-      },
+            timeVisible: true,
+            secondsVisible: false,
+            rightOffset: 10, // This keeps some space on the right side
+            fixLeftEdge: true, // Locks the left edge of the time scale
+        },
+      
+      priceScale: {
+            position: 'right',
+            alignLabels: 'center',
+            borderColor: '#333333', // Color of the price scale border
+        },
+    //   crosshair: {
+    //     mode: 1,
+    //     vertLine: {
+    //         color: '#6A5ACD',
+    //         width: 1,
+    //         style: 0,
+    //         visible: true,
+    //         labelVisible: true,
+    //     },
+    //     horzLine: {
+    //         color: '#6A5ACD',
+    //         width: 1,
+    //         style: 0,
+    //         visible: true,
+    //         labelVisible: true,
+    //     },
+    // },
     });
+    candleSeries.value = chart.value.addCandlestickSeries({
+        upColor: '#07C95B',      
+        downColor: '#EE0B30',    
+        borderUpColor: '#07C95B', 
+        borderDownColor: '#EE0B30', 
+        wickUpColor: '#07C95B',   
+        wickDownColor: '#EE0B30',
+    });
+
+    const logicalRange = { from: 10, to: 80 };
+    chart.value.timeScale().setVisibleLogicalRange(logicalRange);
   
-    candleSeries.value = chart.value.addCandlestickSeries();
+    chart.value.timeScale().scrollToRealTime();
   };
   
   
@@ -158,13 +173,9 @@
     background-color: #1f1f1f;
     /* color: azure; */
   }
-  
-  .chart {
-    /* flex-grow: 1;
-    width: 100%;
-    height: 100%; */
-    /* background-color: black; */
-    /* border: 3px solid red */
+  .chart{
+    cursor:crosshair;
   }
+  
   </style>
   

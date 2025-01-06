@@ -125,10 +125,10 @@ def create_wallet_for_user(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Wallet)
 def send_wallet_update(sender, instance, created, **kwargs):
-    print(f"Wallet updated: {instance.real_balance}, {instance.demo_balance}")
+    # print(f"Wallet updated: {instance.real_balance}, {instance.demo_balance}")
     channel_layer = get_channel_layer()
     # ส่งข้อมูลการอัปเดตไปยังทุกคนในกลุ่ม 'wallet_update'
-    print('have change the wallet')
+    # print('have change the wallet')
     
     # ใช้ async_to_sync เพื่อเรียกใช้ group_send
     async_to_sync(channel_layer.group_send)(

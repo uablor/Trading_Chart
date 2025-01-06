@@ -42,6 +42,7 @@ class Trading(APIView):
             symbol = request.data.get('symbol', 'BTCUSDT')
             price = float(request.data.get('price', 0))
             price_demo = request.data.get("tradeMode")
+            # the_last_request =  request.data.get("last_request")
             if order_type not in ["buy", "sell"]:
                 return Response({"error": "ประเภทคำสั่งไม่ถูกต้อง"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -362,6 +363,7 @@ class Trading(APIView):
             #         return Response(trade_result_buy, status=status.HTTP_200_OK)
 
     def process_trade(self, user, order_type, price, symbol, price_demo, price_type):
+        # the_last_request_number = int(the_last_request)
         
         if price <= 0:
             return Response({"error": "ราคาต้องมากกว่า 0"}, status=status.HTTP_400_BAD_REQUEST)
@@ -390,8 +392,9 @@ class Trading(APIView):
 
         # ประมวลผลคำสั่งซื้อหรือขาย
         cache_key = f"trade_{user.id}_price_total_{order_type.lower()}_{price_type.lower()}"
-        print(cache_key)
+        # print(cache_key)
         trade_data = cache.get(cache_key, {"total_price": 0})
+        # print(f"Cache retrieved for {cache_key}: {trade_data}")
         trade_data["total_price"] += price
         cache.set(cache_key, trade_data)
 
@@ -408,15 +411,19 @@ class Trading(APIView):
         self.get_next_candlestick_time()
 
         last_request = cache.get(last_request_cache_key)
+        # print(f"Cache retrieved for {last_request_cache_key}: {last_request}")
         if last_request:
-            total_price = last_request["total_price"]
-            symbol = last_request["symbol"]
-            order_type = last_request["order_type"]
+            total_price = last_request.get("total_price", 0)
+            symbol = last_request.get("symbol")
+            order_type = last_request.get("order_type")
+            if total_price == 0 or not symbol or not order_type:
+                return {"error": "Invalid cache data for last request"}
+            # print("total_price", total_price , "symbol" , symbol , "order_type", order_type)
             trade_result = self.execute_trade(order_type, symbol, total_price)
-            if price_type == Order.REAL_PRICE:
-                win_or_loss = self.calculate_trade_outcome_real(order_type, symbol, last_candle_start, total_price)
-            else:
+            if price_demo:
                 win_or_loss = self.calculate_trade_outcome_demo(order_type, symbol, last_candle_start, total_price)
+            else:
+                win_or_loss = self.calculate_trade_outcome_real(order_type, symbol, last_candle_start, total_price)
         else:
             trade_result = {"error": "ไม่มีข้อมูลคำขอล่าสุดในแคช"}
             win_or_loss = None
@@ -443,16 +450,26 @@ class Trading(APIView):
         cache.set(last_request_cache_key, {"trade_result": trade_result})
         print("trading_buy_sell", {f"user_id {user}, trade_data {trade_result}"})
         
-        try:
-            async_to_sync(channel_layer.group_send)(
-                "trading_buy_sell",
-                {
-                    'type': 'send_trade_update',
-                    'trade_data': trade_result
-                }
-            )
-        except Exception as ws_error:
-            logger.error(f"WebSocket error: {ws_error}")
+        # ใช้ตัวล็อคหรือฟิลด์สถานะเพื่อตรวจสอบว่าได้ส่ง WebSocket ไปแล้วหรือยัง
+        cache_key_lock = f"{last_request_cache_key}_lock"
+        if not cache.get(cache_key_lock):
+            try:
+                # ส่งข้อมูลผ่าน WebSocket
+                async_to_sync(channel_layer.group_send)(
+                    "trading_buy_sell",
+                    {
+                        'type': 'send_trade_update',
+                        'trade_data': trade_result  # ใช้เฉพาะผลลัพธ์ล่าสุด
+                    }
+                )
+                # ตั้งล็อคเพื่อป้องกันการส่งซ้ำ
+                cache.set(cache_key_lock, True, timeout=5)  # ล็อคไว้ 5 วินาที หรือเวลาที่เหมาะสม
+                # ลบแคชเมื่อส่ง WebSocket สำเร็จ
+                cache.delete(cache_key)
+                cache.delete(last_request_cache_key)
+            except Exception as ws_error:
+                logger.error(f"WebSocket error: {ws_error}")
+                # หากเกิดข้อผิดพลาด ไม่ลบแคชเพื่อเก็บข้อมูลสำหรับการ debug หรือ retry
         
         cache.delete(cache_key)
         cache.delete(last_request_cache_key)
@@ -587,10 +604,10 @@ class Trading(APIView):
         self.wallet.save()
         
     def update_wallet_demo(self, price):
-        print(f"wallet demo = {self.wallet.demo_balance}")
+        # print(f"wallet demo = {self.wallet.demo_balance}")
         self.wallet.demo_balance -= price
         self.wallet.save()
-        print(f"wallet demo update = {self.wallet.demo_balance}")
+        # print(f"wallet demo update = {self.wallet.demo_balance}")
         
         
     def execute_trade(self, order_type, symbol, price):

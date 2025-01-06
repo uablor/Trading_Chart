@@ -78,8 +78,8 @@ const routes = [
         component: Navbar,
       },
       {
-        path: "/waller",
-        name: "waller",
+        path: "/wallet",
+        name: "wallet",
         component: Wallet,
       },
 

@@ -40,7 +40,7 @@ run : python manage.py runserver
 
 
 
-# for next 
+# for next แท่งเทียน
 
   # url = 'https://api.binance.com/api/v3/klines'
             # params = {

@@ -231,7 +231,7 @@
   .crypto-ticker {
     margin-top: 50px;
     padding: 20px;
-    background-color: #743a8f;
+    background-color: rgba(116, 58, 143); 
     border-radius: 4px;
     /* height: 100px; */
   }

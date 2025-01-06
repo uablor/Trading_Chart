@@ -89,6 +89,7 @@ const removeTab = (index) => {
   height: 85vh;
   background-color: #1f1f1f;
   width: 100%;
+  /* width: calc(88% + 15px); */
   z-index: 100;
   /* background-color: #eb0404; */
 
@@ -96,7 +97,7 @@ const removeTab = (index) => {
 
 .chart_trading {
  margin-top: 20px;
- margin-left: 50px;
+ /* margin-left: 50px; */
   /* border: 2px solid red; */
 
 }

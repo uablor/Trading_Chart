@@ -1,91 +1,70 @@
 <template>
-    <div class=" text-white w-full p-6">
-      <!-- Header Section -->
-      <div class="flex justify-between items-center mb-8">
-        <div>
-          <div class="text-lg font-semibold">Total Balance (USDT)</div>
-          <div class="text-3xl">$0</div>
-          <div class="text-sm text-gray-400">Today's PnL $0 (0%)</div>
-        </div>
-        <div>
-          <div class="text-sm">Last 30 Days</div>
-          <div class="text-red-500">PnL $0</div>
-          <div class="w-32 h-1 bg-red-500 mt-2"></div>
-        </div>
+  <div class="text-white p-6 w-[100%]">
+    <!-- Header Section -->
+    <div class="flex justify-between items-center mb-8">
+      <div>
+        <div class="text-lg font-semibold">Total Balance (USDT)</div>
+        <div class="text-3xl color font-bold pt-3 pb-3">${{ Price }}</div>
+        <div class="text-sm text-gray-400">Today's PnL ${{ PnL }} ({{ PnLPercent }}%)</div>
       </div>
-  
-      <!-- Buttons Section -->
-      <div class="flex space-x-4 mb-6">
-        <button class="px-4 py-2 bg-orange-500 rounded text-black">Deposit</button>
-        <button class="px-4 py-2 bg-gray-500 rounded text-black">Withdraw</button>
-        <button class="px-4 py-2 bg-gray-500 rounded text-black">Transfer</button>
-      </div>
-  
-      <!-- Tabs Section -->
-      <div class="flex space-x-8 border-b border-gray-700 mb-6">
-        <button
-          class="px-2 py-1 text-white border-b-2 border-orange-500"
-          @click="activeTab = 'overview'"
-          :class="activeTab === 'overview' ? 'border-orange-500' : ''"
-        >
-          Overview
-        </button>
-        <button
-          class="px-2 py-1 text-gray-400"
-          @click="activeTab = 'assets'"
-        >
-          My Assets
-        </button>
-        <button
-          class="px-2 py-1 text-gray-400"
-          @click="activeTab = 'history'"
-        >
-          Transaction History
-        </button>
-      </div>
-  
-      <!-- Content Section -->
-      <div v-if="activeTab === 'overview'" class="text-center">
-        <div class="text-gray-400 mb-4">Asset Allocation</div>
-        <div class="flex justify-center items-center">
-          <div class="text-4xl">⚖️</div>
-        </div>
-      </div>
-  
-      <!-- Date Filters -->
-      <div class="flex justify-end space-x-4 mt-6">
-        <button
-          class="px-4 py-2 bg-orange-500 text-black rounded"
-          @click="activeFilter = '7days'"
-          :class="activeFilter === '7days' ? 'bg-orange-500 text-black' : 'bg-gray-500 text-white'"
-        >
-          Last 7 Days
-        </button>
-        <button
-          class="px-4 py-2 bg-gray-500 text-white rounded"
-          @click="activeFilter = '30days'"
-          :class="activeFilter === '30days' ? 'bg-orange-500 text-black' : 'bg-gray-500 text-white'"
-        >
-          Last 30 Days
-        </button>
-        <button
-          class="px-4 py-2 bg-gray-500 text-white rounded"
-          @click="activeFilter = 'custom'"
-        >
-          Customize
-        </button>
+      <div>
+        <div class="text-sm">Last 30 Days</div>
+        <div class="text-red-500">PnL ${{ PnL }}</div>
+        <div class="w-32 h-1 bg-red-500 mt-2"></div>
       </div>
     </div>
-  </template>
-  
-  <script setup>
-  import { ref } from 'vue';
-  
-  const activeTab = ref('overview');
-  const activeFilter = ref('7days');
-  </script>
-  
-  <style>
-  /* Add custom styles here if needed */
-  </style>
-  
+
+    <!-- Buttons Section -->
+    <!-- <div class="flex space-x-4 mb-6"> -->
+      <div class="flex space-x-4 mb-6">
+      <DepositComponent />
+      <WithdrawComponent/>
+      <TransferComponent />
+      </div>
+    <!-- </div> -->
+
+    <TableComponent />
+    
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import DepositComponent from '../components/Deposit.component.vue';
+import WithdrawComponent from '../components/Withdraw.component.vue';
+import TransferComponent from '../components/Transfer.component.vue';
+import TableComponent from '../components/Tables.component.vue';
+import axios from '../../../../services/axios';
+
+const Price = ref(0);
+const PnL = ref(0);
+const PnLPercent = ref(0);
+
+const GetPrice = async () => {
+  try {
+    const response = await axios.get('wallet/');
+    // console.log('Wallet Price:', response.data);
+    if (response.data?.results?.length) {
+      Price.value = response.data.results[0].real_balance; // Extracting real_balance from the first result
+    } else {
+      Price.value = 0; // Default to 0 if no results are returned
+    }
+  } catch (error) {
+    console.error('Error fetching wallet price:', error);
+    Price.value = 0; // Fallback value
+  }
+};
+
+// Call GetPrice when the component is mounted
+onMounted(() => {
+  GetPrice();
+});
+</script>
+
+<style scoped>
+.color{
+  color: rgb(10, 194, 10);
+
+}
+/* Add any custom styles here */
+</style>

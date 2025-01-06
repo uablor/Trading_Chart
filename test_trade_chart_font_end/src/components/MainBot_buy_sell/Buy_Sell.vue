@@ -67,8 +67,7 @@ const isDisabled = ref(false);
 import { useWalletStore } from '@/stores/walletStore';
 
 const walletStore = useWalletStore();
-const currentMode = ref(walletStore.selectedWalletMode);
-const ModeTrading = ref(currentMode.value == 'real' ? false : true);
+
 
 import { notification } from "ant-design-vue";
 import { SmileOutlined, FrownOutlined } from "@ant-design/icons-vue";
@@ -99,6 +98,8 @@ const openNotificationWithIcon = (title, type) => {
 
 // ฟังก์ชันบันทึกคำขอซื้อ/ขาย
 async function queueTrade(order_type, symbol) {
+  const currentMode = ref(walletStore.selectedWalletMode);
+  const ModeTrading = ref(currentMode.value == 'real' ? false : true);
   if (price.value <= 0 || isNaN(price.value)) {
     openNotificationWithIcon("Warning ...", "error");
     return;
@@ -144,6 +145,8 @@ const profitPercentage = ref(95);
 
 
 onMounted(() => {
+  
+  ///////////////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////////
 
   socket.value = new WebSocket("ws://127.0.0.1:9000/ws/trading/"); // Replace with your WebSocket URL

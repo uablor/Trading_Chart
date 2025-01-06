@@ -9,7 +9,10 @@
         <div class="sidebar">
           <Sidebar />
         </div>
-        <RouterView />
+        <div class=" ml-[100px] w-full">
+          <RouterView />
+        </div>
+
       </div>
     </div>
     
@@ -27,6 +30,7 @@
   <!-- <navbarMoneyComponecnt/> -->
   <!-- <Navbar/> -->
     <!-- <Buy_Sell/>  -->
+     <!-- <btc_Tradings/> -->
 </template>
 
 <script setup>
@@ -39,6 +43,7 @@ import { computed } from 'vue';
 import Buy_Sell from "./components/MainBot_buy_sell/Buy_Sell.vue";
 import Navbar from "./components/Navbar/Navbar.vue";
 import Sidebar from "./components/Sidebar/Sidebar.vue";
+import btc_Tradings from "./views/module/btc-trading/views/index.vue";
 const route = useRoute();
 
 const isLoginOrRegister = computed(() => {
@@ -79,9 +84,12 @@ const isLoginOrRegister = computed(() => {
 }
 
 .sidebar {
-  border-right: 2px solid rgb(125, 8, 172);
+  /* border-right: 2px solid rgb(125, 8, 172); */
   margin-right: 10px;
   height: 550px;
+  position: fixed;
+  width: 150px;
+  z-index: 10000;
 
 }
 

@@ -1,197 +1,300 @@
 <template>
-    <div class="sidebar">
-        <ul class="side-login">
-            <li>
-                <router-link to="/chart_buy_sell" class="trade-login back">
-                    <img src="../../assets/image/Chart/6353961.png" class="logo-icon" />
-                    <div class="menu-text">Trade</div>
-                </router-link>
-            </li>
-            <li>
-                <router-link to="/profile" class="profile back">
-                    <img src="../../assets/image/Avatar/Aavatar.png" class="logo-icon" />
-                    <div class="menu-text">Profile</div>
-                </router-link>
-            </li>
-            <li>
-                <router-link to="/waller" class="profile back">
-                    <img src="../../assets/image/waller.webp" class="logo-icon" />
-                    <div class="menu-text">Waller</div>
-                </router-link>
-            </li>
+  <!-- Include FontAwesome CSS from CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+      integrity="sha384-...hash..." crossorigin="anonymous">
 
-            <button @click="showModal" class="button-logout" type="button">
+  <div class="h-screen flex items-center">
+      <div class="h-full pt-5 side-bar-background relative transition-all duration-300 ease-in-out w-[83px]">
+          <!-- <div :class="{'w-[80px]': activeIndex === null, 'w-[120px]': activeIndex !== null}"></div> -->
+          <div class="flex flex-col items-center gap-5 ">
+              <!-- Home -->
+              <div class="relative cursor-pointer w-full"
+                  
+                  @click="toggleActive(0)">
+                  <router-link to="/chart_buy_sell" class="relative flex items-center h-12"
+                      :class="activeIndex === 0 ? 'justify-end px-6' : 'justify-center'">
+                      <!-- Active tab background -->
+                      <div v-if="activeIndex === 0" class="absolute inset-0 text-color-define h-12"></div>
 
-                <img src="../../assets/image/logout-1024.webp" class="logo-icon" />
-                <div class="menu-text">Log out</div>
-            </button>
+                      <!-- Icon -->
+                      <div class="relative z-10 transition-all duration-300 flex items-center"
+                          :class="{ 'translate-x-14': activeIndex === 0 }">
+                          <i class="fas fa-chart-line text-2xl text-name-menus" ></i>
+                          <div v-if="activeIndex === 0"
+                              class="absolute inset-0 w-16 h-16 text-icon-define rounded-full -translate-x-1 -translate-y-1"
+                              style="margin-top: -15px; margin-left: -18px;"></div>
+                      </div>
 
-        </ul>
+                      <!-- Label -->
+                      <span v-if="isSidebarOpen"
+                          class="absolute left-2 text-name-menus whitespace-nowrap transition-all duration-300 px-2"
+                          :class="{ 'opacity-100': activeIndex === 0, 'opacity-0': activeIndex !== 0 }">
+                          Trader
+                      </span>
+                  </router-link>
+              </div>
 
+              <!-- Dashboard -->
+              <div class="relative cursor-pointer w-full" @click="toggleActive(1)">
+                  <router-link to="/wallet" class="relative flex items-center h-12"
+                      :class="activeIndex === 1 ? 'justify-end px-6' : 'justify-center'">
+                      <div v-if="activeIndex === 1" class="absolute inset-0 text-color-define h-12"></div>
+                      <div class="relative z-10 transition-all duration-300 flex items-center"
+                          :class="{ 'translate-x-14': activeIndex === 1 }">
+                          <i class="fas fa-shopping-bag text-2xl text-name-menus"></i>
+                          <div style="margin-top: -15px; margin-left: -19px;" v-if="activeIndex === 1"
+                              class="absolute inset-0 w-16 h-16 text-icon-define rounded-full -translate-x-1 -translate-y-1">
+                          </div>
+                      </div>
+                      <span class="absolute left-2 text-name-menus whitespace-nowrap transition-all duration-300 px-2"
+                          :class="{ 'opacity-100': activeIndex === 1, 'opacity-0': activeIndex !== 1 }">
+                          Wallet
+                      </span>
+                  </router-link>
+              </div>
 
-    </div> <!-- Modal -->
-    <div v-if="isModalVisible" class="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-[999]">
-        <div class="relative p-4 w-full max-w-md max-h-full">
-            <div class="relative bg-violet-700 rounded-lg shadow dark:bg-gray-700">
-                <button @click="hideModal"
-                    class="absolute top-3 right-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white">
-                    <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none"
-                        viewBox="0 0 14 14">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
-                    </svg>
-                    <span class="sr-only">Close modal</span>
-                </button>
-                <div class="p-4 md:p-5 text-center">
-                    <svg class="mx-auto mb-4 text-gray-400 w-12 h-12 dark:text-gray-200" aria-hidden="true"
-                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M10 11V6m0 8h.01M19 10a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
-                    <h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">
-                        Are you want to logout?
-                    </h3>
-                    <button @click="logout_function"
-                        class="text-white bg-red-600 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 font-medium rounded-lg text-sm inline-flex items-center px-5 py-2.5 text-center">
-                        Logout
-                    </button>
-                    <button @click="hideModal"
-                        class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
-                        cancel
-                    </button>
-                </div>
+              <!-- Trader -->
+              <div class="relative cursor-pointer w-full" @click="toggleActive(2)">
+                  <router-link to="/profile" class="relative flex items-center h-12"
+                      :class="activeIndex === 2 ? 'justify-end px-6' : 'justify-center'">
+                      <div v-if="activeIndex === 2" class="absolute inset-0 text-color-define h-12"></div>
+                      <div class="relative z-10 transition-all duration-300 flex items-center"
+                          :class="{ 'translate-x-14': activeIndex === 2 }">
+                          <i class="fas fa-user-circle text-2xl text-name-menus"></i>
+                          <div style="margin-top: -15px; margin-left: -18px;" v-if="activeIndex === 2"
+                              class="absolute inset-0 w-16 h-16 text-icon-define rounded-full -translate-x-1 -translate-y-1">
+                          </div>
+                      </div>
+                      <span class="absolute left-2 text-name-menus whitespace-nowrap transition-all duration-300 px-2"
+                          :class="{ 'opacity-100': activeIndex === 2, 'opacity-0': activeIndex !== 2 }">
+                          Profile
+                      </span>
+                  </router-link>
+              </div>
+
+              <!-- Products -->
+              <!-- <div
+          class="relative cursor-pointer w-full"
+          @click="toggleActive(3)"
+        >
+          <div 
+            class="relative flex items-center h-12"
+            :class="activeIndex === 3 ? 'justify-end px-6' : 'justify-center'"
+          >
+            <div 
+              v-if="activeIndex === 3"
+              class="absolute inset-0 text-color-define h-12"
+            ></div>
+            <div 
+              class="relative z-10 transition-all duration-300 flex items-center"
+              :class="{ 'translate-x-14': activeIndex === 3 }"
+            >
+              <i class="fas fa-shopping-bag text-2xl text-name-menus"></i>
+              <div style="margin-top: -15px; margin-left: -17px;"
+                v-if="activeIndex === 3"
+                class="absolute inset-0 w-16 h-16 text-icon-define rounded-full -translate-x-1 -translate-y-1"
+              ></div>
             </div>
-        </div>
-    </div>
+            <span
+              class="absolute left-2 text-name-menus whitespace-nowrap transition-all duration-300 px-2"
+              :class="{ 'opacity-100': activeIndex === 3, 'opacity-0': activeIndex !== 3 }"
+            >
+              Products
+            </span>
+          </div>
+        </div> -->
+
+              <!-- Category -->
+              <div class="relative cursor-pointer w-full" @click="toggleActive(4)">
+                  <div @click="showModal" class="relative flex items-center h-12"
+                      :class="activeIndex === 4 ? 'justify-end px-6' : 'justify-center'">
+                      <div v-if="activeIndex === 4" class="absolute inset-0 text-color-define h-12"></div>
+                      <div class="relative z-10 transition-all duration-300 flex items-center"
+                          :class="{ 'translate-x-14': activeIndex === 4 }">
+                          <i class="fas fa-sign-out-alt text-2xl text-name-menus"></i>
+                          <div style="margin-top: -15px; margin-left: -18px;" v-if="activeIndex === 4"
+                              class="absolute inset-0 w-16 h-16 text-icon-define rounded-full -translate-x-1 -translate-y-1">
+                          </div>
+                      </div>
+                      <span class="absolute left-2 text-name-menus whitespace-nowrap transition-all duration-300 px-2"
+                          :class="{ 'opacity-100': activeIndex === 4, 'opacity-0': activeIndex !== 4 }">
+                          <!-- <button @click="showModal" > -->
+                          Logout
+                          <!-- </button> -->
+
+                      </span>
+                  </div>
+              </div>
+          </div>
+      </div>
+  </div>
+
+
+  <!-- modal -->
+  <div v-if="isModalVisible"
+      class="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75 z-[9999]">
+      <div class="relative p-4 w-full max-w-md max-h-full">
+          <div
+              class="relative modal-background dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transform transition-all scale-95 ease-in-out duration-300">
+              <!-- Close Button -->
+              <button @click="hideModal"
+                  class="absolute top-3 right-3 text-gray-400 hover:text-gray-900 rounded-lg text-sm focus:outline-none">
+                  <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none"
+                      viewBox="0 0 20 20">
+                      <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M6 6l8 8m-8 0l8-8" />
+                  </svg>
+                  <span class="sr-only">Close modal</span>
+              </button>
+
+              <!-- Modal Content -->
+              <div class="p-4 md:p-6 text-center">
+                  <svg class="mx-auto mb-4 text-gray-400 w-12 h-12 dark:text-gray-200" aria-hidden="true"
+                      xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                      <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M10 11V6m0 8h.01M19 10a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                  <h3 class="mb-5 text-lg font-medium text-for-logout">Are you sure you want to logout?</h3>
+
+                  <!-- Logout Button -->
+                  <div style="display: flex; gap: 10px; justify-content: center;">
+                      <button @click="logout_function" class="buton-logout">
+                          <i class="fas fa-sign-out-alt mr-2"></i> Logout
+                      </button>
+
+                      <!-- Cancel Button -->
+                      <button @click="hideModal" class="buton-cancel-logout">
+                          Cancel
+                      </button>
+                  </div>
+
+              </div>
+          </div>
+      </div>
+  </div>
 </template>
 
 <script setup>
-
-import { ref } from "vue";
-
+import { ref, onMounted } from 'vue';
 import { useAuthStore } from '../../stores/auth';
 
+// State management
+// Set default index to match the Trader tab
+// Active index to track the selected tab
+const activeIndex = ref(0);
+const isSidebarOpen = ref(true);
+
+
+// Function to handle tab switching
+const toggleActive = (index) => {
+  activeIndex.value = index;
+};
 const store = useAuthStore()
 const { logout } = store
 
 // Login function
 const logout_function = async () => {
-    try {
-        // Call the login method from the store
-        await logout();
-    } catch (err) {
-        console.log(err)
-        // If there's an error, display it
-        errorMessage.value = 'Login failed. Please try again.';
-    }
+  try {
+      // Call the login method from the store
+      await logout();
+  } catch (err) {
+      console.log(err)
+      // If there's an error, display it
+      errorMessage.value = 'Login failed. Please try again.';
+  }
 };
 
 
-// Manage modal visibility state
+const toggleSidebar = () => {
+isSidebarOpen.value = !isSidebarOpen.value;
+};
+
 const isModalVisible = ref(false);
 
 // Functions to show and hide the modal
 const showModal = () => {
-    isModalVisible.value = true;
+  isModalVisible.value = true;
 };
 
+
 const hideModal = () => {
-    isModalVisible.value = false;
+  isModalVisible.value = false;
 };
+
+
 </script>
 
 <style scoped>
-.sidebar {
-    width: 90px;
-    /* Adjusted width for a better balance */
-    padding: 0px 5px;
-    height: 100%;
-    background-color: #1f1f1f;
-    color: rgb(0, 0, 0);
-    display: flex;
-    flex-direction: column;
-
-    justify-content: flex-start;
-    font-size: 14px;
-    /* Adjusted font size for readability */
-    /* border-right: 2px solid #8811e9; */
-    /* Slight border for a cleaner look */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
 }
 
-.logo-icon {
-    height: 35px;
-    /* Slightly reduced the size for a more balanced design */
-    width: 35px;
-    margin-right: 10px;
-    transition: transform 0.3s ease;
-    /* Icon scale effect */
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
-.side-login li {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: rgb(241, 241, 241);
-    margin-top: 10px;
-    text-align: center;
-    padding: 12px;
-    font-weight: 800;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border-radius: 8px;
-    text-transform: uppercase;
-    margin-right: 7px;
-    /* Uppercase text for uniformity */
+.text-color-define {
+  background: rgb(125, 8, 172);
+
+
 }
 
-.button-logout {
-    width: 90%;
-    display: flex;
-    align-items: center;
-    flex-direction: column;
-    justify-content: center;
-    background-color: rgb(241, 241, 241);
-    margin-top: 10px;
-    text-align: center;
-    padding: 12px;
-    font-weight: 800;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border-radius: 8px;
-    text-transform: uppercase;
-    /* Uppercase text for uniformity */
+.text-icon-define {
+  background: rgb(125, 8, 172);
+
+
+  z-index: -99;
+
 }
 
-.side-login li:hover {
-    background-color: rgb(136, 56, 182);
-    /* Applies a purple background color */
-    transform: scale(1.05);
-    /* Slightly enlarges the element on hover */
+.text-name-menus {
+  color: rgb(255, 255, 255);
 }
 
-.button-logout:hover {
-    background-color: rgb(136, 56, 182);
-    /* Applies a purple background color */
-    transform: scale(1.05);
-    /* Slightly enlarges the element on hover */
+/* .text-name-menus:hover{
+  color:white;
+} */
+.side-bar-background {
+  /* background: rgb(16, 16, 16); */
+  /* border: 2px solid rgb(125, 8, 172); */
+  border-right: 2px solid rgb(125, 8, 172);
+
 }
 
-.side-login li:hover .logo-icon {
-    transform: scale(1.2);
-    /* Larger icon on hover */
+.modal-background {
+  background: rgb(118, 9, 118);
 }
 
-.menu-text {
-    /* display: inline-block; */
-    color: rgb(0, 0, 0);
-    font-size: 10px;
-    /* Increased font size for better readability */
-    /* margin-left: 10px; */
-    opacity: 1;
-    transition: opacity 0.3s ease;
+.text-for-logout {
+  color: aliceblue;
 }
 
-.side-login li:hover .menu-text {
-    opacity: 1;
+.buton-logout {
+  background: rgb(193, 12, 12);
+  width: 130px;
+  height: 40px;
+  margin-top: 20px;
+  color: #ffff;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.buton-logout:hover {
+  background: rgb(123, 15, 15)
+}
+
+.buton-cancel-logout {
+  background: white;
+  width: 130px;
+  height: 40px;
+  margin-top: 20px;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.buton-cancel-logout:hover {
+  background: rgb(191, 187, 187);
 }
 </style>

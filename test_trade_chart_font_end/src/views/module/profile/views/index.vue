@@ -5,7 +5,6 @@
         <accountVerifyComponent/>
     </div>
 
-
 </div>
 </template>
 
